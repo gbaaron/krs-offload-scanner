@@ -2,7 +2,7 @@
    POST /scan-product
    Body: {
      barcode, jobId, crew,
-     dealer, productName, manufacturer,    // current scan context
+     dealer, jobNumber, productName, manufacturer,    // scan context
      scanType, gps, timestamp
    }
 
@@ -33,6 +33,7 @@ exports.handler = async function (event) {
     const jobId = body.jobId;
     const crew = body.crew || 'unknown';
     const dealer = body.dealer || '';
+    const jobNumber = body.jobNumber || '';
     const productName = body.productName || '';
     const manufacturer = body.manufacturer || '';
     const scanType = body.scanType || 'Offload';
@@ -59,6 +60,7 @@ exports.handler = async function (event) {
         'Scanned By': crew,
         'GPS Coordinates': gps,
         'Scan Type': scanType,
+        'Job Number': jobNumber,
         'Notes': 'Duplicate scan — barcode already logged',
       });
 
@@ -71,6 +73,7 @@ exports.handler = async function (event) {
           description: existing.fields['Description'] || '',
           manufacturer: existing.fields['Manufacturer'] || '',
           dealer: existing.fields['Dealer'] || '',
+          jobNumber: existing.fields['Job Number'] || '',
           status: existing.fields['Scan Status'] || '',
         }
       });
@@ -82,6 +85,7 @@ exports.handler = async function (event) {
       'Description': productName || 'Unlabeled Item',
       'Manufacturer': manufacturer,
       'Dealer': dealer,
+      'Job Number': jobNumber,
       'Job': [jobId],
       'Expected Quantity': 1,
       'Received Quantity': 1,
@@ -100,6 +104,7 @@ exports.handler = async function (event) {
       'Scanned By': crew,
       'GPS Coordinates': gps,
       'Scan Type': scanType,
+      'Job Number': jobNumber,
       'Notes': 'First scan — product row created',
     });
 
@@ -112,6 +117,7 @@ exports.handler = async function (event) {
         description: newProduct.fields['Description'] || '',
         manufacturer: newProduct.fields['Manufacturer'] || '',
         dealer: newProduct.fields['Dealer'] || '',
+        jobNumber: newProduct.fields['Job Number'] || '',
         status: newProduct.fields['Scan Status'] || '',
       }
     });

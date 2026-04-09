@@ -1,7 +1,7 @@
 /* =====================================================================
    POST /report-damage
    Body: { barcode, jobId, crew,
-           dealer, productName, manufacturer,
+           dealer, jobNumber, productName, manufacturer,
            notes, gps, timestamp,
            photoBase64, photoFilename, photoType }
    - Looks for existing Products row matching barcode + job
@@ -31,6 +31,7 @@ exports.handler = async function (event) {
     const jobId = body.jobId;
     const crew = body.crew || 'unknown';
     const dealer = body.dealer || '';
+    const jobNumber = body.jobNumber || '';
     const productName = body.productName || '';
     const manufacturer = body.manufacturer || '';
     const notes = body.notes || 'Damage reported';
@@ -57,6 +58,8 @@ exports.handler = async function (event) {
         'Scanned By': crew,
         'Scanned At': timestamp,
       };
+      // Only overwrite Job Number if crew provided one in the current context
+      if (jobNumber) fields['Job Number'] = jobNumber;
       // Airtable only accepts attachments by public URL via API.
       // If caller provided a data URL, try that (Airtable will reject
       // raw base64 — so we prepend a data: URL and let Airtable attempt
@@ -78,6 +81,7 @@ exports.handler = async function (event) {
         'Description': productName || 'Damaged item (unknown barcode)',
         'Manufacturer': manufacturer,
         'Dealer': dealer,
+        'Job Number': jobNumber,
         'Job': [jobId],
         'Expected Quantity': 1,
         'Received Quantity': 0,
@@ -98,6 +102,7 @@ exports.handler = async function (event) {
       'Scanned By': crew,
       'GPS Coordinates': gps,
       'Scan Type': 'Damage Report',
+      'Job Number': jobNumber,
       'Notes': notes,
     });
 

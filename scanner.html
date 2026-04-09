@@ -50,6 +50,9 @@
     <label class="big-label" for="dealerInput">Dealer</label>
     <input class="big-input" id="dealerInput" type="text" value="Michigan Office Environments" placeholder="e.g. Michigan Office Environments">
 
+    <label class="big-label" for="jobNumberInput">Job Number</label>
+    <input class="big-input" id="jobNumberInput" type="text" inputmode="text" autocomplete="off" placeholder="e.g. MOE-2026-0412">
+
     <label class="big-label" for="productInput">Product Name <span class="required">*</span></label>
     <input class="big-input" id="productInput" type="text" placeholder="e.g. HON 4-Drawer File Cabinet">
 
@@ -78,6 +81,7 @@
         <span class="context-meta-sep">&middot;</span>
         <span id="ctxDealer">No dealer</span>
       </div>
+      <div class="context-jobnum" id="ctxJobNumber">Job #: —</div>
     </div>
 
     <!-- Running tally -->
@@ -138,6 +142,9 @@
 
       <label class="big-label" for="ctxEditDealer">Dealer</label>
       <input class="big-input" id="ctxEditDealer" type="text" placeholder="e.g. Michigan Office Environments">
+
+      <label class="big-label" for="ctxEditJobNumber">Job Number</label>
+      <input class="big-input" id="ctxEditJobNumber" type="text" autocomplete="off" placeholder="e.g. MOE-2026-0412">
 
       <div class="modal-actions">
         <button class="big-btn big-btn-cancel" id="ctxCancel">CANCEL</button>

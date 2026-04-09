@@ -288,6 +288,18 @@ body.scanner-body {
   margin-top: 4px;
 }
 .context-meta-sep { margin: 0 6px; opacity: 0.5; }
+.context-jobnum {
+  margin-top: 10px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  color: #e87c2a;
+  background: rgba(232,124,42,0.15);
+  padding: 5px 12px;
+  border-radius: 99px;
+  display: inline-block;
+}
 
 /* Modal help text */
 .modal-help {

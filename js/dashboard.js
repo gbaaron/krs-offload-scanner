@@ -118,7 +118,7 @@
       rows = rows.filter((p) => (p.status || 'Pending') === state.filter);
     }
     if (!rows.length) {
-      el.manifestBody.innerHTML = '<tr><td colspan="6" class="empty-state">No items match this filter</td></tr>';
+      el.manifestBody.innerHTML = '<tr><td colspan="7" class="empty-state">No items match this filter</td></tr>';
       return;
     }
 
@@ -126,6 +126,7 @@
       const status = p.status || 'Pending';
       const badgeClass = 'status-' + status.toLowerCase();
       return '<tr>' +
+        '<td>' + escapeHtml(p.jobNumber || '—') + '</td>' +
         '<td>' + escapeHtml(p.productId || '') + '</td>' +
         '<td>' + escapeHtml(p.description || '') + '</td>' +
         '<td>' + escapeHtml(p.manufacturer || '') + '</td>' +
@@ -175,6 +176,7 @@
             escapeHtml(s.scannedBy || 'unknown') + ' &middot; ' +
             formatDate(s.timestamp) +
             (s.scanType ? ' &middot; ' + escapeHtml(s.scanType) : '') +
+            (s.jobNumber ? ' &middot; Job #' + escapeHtml(s.jobNumber) : '') +
           '</div>' +
         '</li>';
       }).join('');
@@ -191,13 +193,15 @@
       alert('Nothing to export yet.');
       return;
     }
-    const headers = ['Barcode', 'Description', 'Manufacturer', 'Expected', 'Received', 'Status', 'Scanned By', 'Scanned At', 'Notes'];
+    const headers = ['Job Number', 'Barcode', 'Description', 'Manufacturer', 'Dealer', 'Expected', 'Received', 'Status', 'Scanned By', 'Scanned At', 'Notes'];
     const lines = [headers.join(',')];
     state.manifest.forEach((p) => {
       const row = [
+        p.jobNumber || '',
         p.productId || '',
         p.description || '',
         p.manufacturer || '',
+        p.dealer || '',
         p.expected || 0,
         p.received || 0,
         p.status || 'Pending',

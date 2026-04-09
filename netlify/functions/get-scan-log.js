@@ -29,6 +29,7 @@ exports.handler = async function (event) {
       timestamp: r.fields['Timestamp'] || '',
       gps: r.fields['GPS Coordinates'] || '',
       scanType: r.fields['Scan Type'] || '',
+      jobNumber: r.fields['Job Number'] || '',
       notes: r.fields['Notes'] || '',
       // Description isn't directly on scan log, but the dashboard will fall back to barcode
       description: r.fields['Barcode Value'] || '',

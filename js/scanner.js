@@ -26,6 +26,7 @@
     crew: '',
     jobId: '',
     jobName: '',
+    jobNumber: '',
     dealer: 'Michigan Office Environments',
     productName: '',
     manufacturer: '',
@@ -46,6 +47,7 @@
     crewSelect: $('crewSelect'),
     jobSelect: $('jobSelect'),
     dealerInput: $('dealerInput'),
+    jobNumberInput: $('jobNumberInput'),
     productInput: $('productInput'),
     manufacturerInput: $('manufacturerInput'),
     startBtn: $('startBtn'),
@@ -54,6 +56,7 @@
     ctxProduct: $('ctxProduct'),
     ctxManufacturer: $('ctxManufacturer'),
     ctxDealer: $('ctxDealer'),
+    ctxJobNumber: $('ctxJobNumber'),
     changeContextBtn: $('changeContextBtn'),
     tallyScanned: $('tallyScanned'),
     scanBtn: $('scanBtn'),
@@ -69,6 +72,7 @@
     ctxEditProduct: $('ctxEditProduct'),
     ctxEditManufacturer: $('ctxEditManufacturer'),
     ctxEditDealer: $('ctxEditDealer'),
+    ctxEditJobNumber: $('ctxEditJobNumber'),
     ctxCancel: $('ctxCancel'),
     ctxSave: $('ctxSave'),
     damageModal: $('damageModal'),
@@ -203,6 +207,7 @@
   function saveContext() {
     const payload = {
       dealer: state.dealer,
+      jobNumber: state.jobNumber,
       productName: state.productName,
       manufacturer: state.manufacturer,
     };
@@ -214,6 +219,7 @@
       if (!raw) return;
       const p = JSON.parse(raw);
       if (p.dealer) { state.dealer = p.dealer; el.dealerInput.value = p.dealer; }
+      if (p.jobNumber) { state.jobNumber = p.jobNumber; el.jobNumberInput.value = p.jobNumber; }
       if (p.productName) { state.productName = p.productName; el.productInput.value = p.productName; }
       if (p.manufacturer) { state.manufacturer = p.manufacturer; el.manufacturerInput.value = p.manufacturer; }
     } catch (e) { console.warn('restoreContext failed', e); }
@@ -226,6 +232,7 @@
     el.ctxProduct.textContent = state.productName || 'Product not set';
     el.ctxManufacturer.textContent = state.manufacturer || 'No manufacturer';
     el.ctxDealer.textContent = state.dealer || 'No dealer';
+    el.ctxJobNumber.textContent = 'Job #: ' + (state.jobNumber || '—');
   }
 
   // ====================================================================
@@ -246,6 +253,7 @@
     const jobOpt = el.jobSelect.options[el.jobSelect.selectedIndex];
     state.jobName = jobOpt.dataset.name || '';
     state.dealer = (el.dealerInput.value || '').trim() || jobOpt.dataset.dealer || '';
+    state.jobNumber = (el.jobNumberInput.value || '').trim();
     state.productName = (el.productInput.value || '').trim();
     state.manufacturer = (el.manufacturerInput.value || '').trim();
     saveContext();
@@ -265,6 +273,7 @@
     el.ctxEditProduct.value = state.productName;
     el.ctxEditManufacturer.value = state.manufacturer;
     el.ctxEditDealer.value = state.dealer;
+    el.ctxEditJobNumber.value = state.jobNumber;
     el.contextModal.classList.remove('hidden');
   }
   function saveContextModal() {
@@ -276,6 +285,7 @@
     state.productName = product;
     state.manufacturer = (el.ctxEditManufacturer.value || '').trim();
     state.dealer = (el.ctxEditDealer.value || '').trim();
+    state.jobNumber = (el.ctxEditJobNumber.value || '').trim();
     saveContext();
     renderContextCard();
     el.contextModal.classList.add('hidden');
@@ -437,6 +447,7 @@
       jobId: state.jobId,
       crew: state.crew,
       dealer: state.dealer,
+      jobNumber: state.jobNumber,
       productName: state.productName,
       manufacturer: state.manufacturer,
       scanType: 'Offload',
@@ -503,6 +514,7 @@
       jobId: state.jobId,
       crew: state.crew,
       dealer: state.dealer,
+      jobNumber: state.jobNumber,
       productName: state.productName,
       manufacturer: state.manufacturer,
       notes: notes,
