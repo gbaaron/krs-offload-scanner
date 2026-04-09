@@ -25,6 +25,7 @@ exports.handler = async function (event) {
       productId: r.fields['Product ID'] || '',
       description: r.fields['Description'] || '',
       manufacturer: r.fields['Manufacturer'] || '',
+      dealer: r.fields['Dealer'] || '',
       expected: Number(r.fields['Expected Quantity'] || 0),
       received: Number(r.fields['Received Quantity'] || 0),
       status: r.fields['Scan Status'] || 'Pending',

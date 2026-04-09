@@ -1,13 +1,16 @@
 /* =====================================================================
    POST /report-damage
-   Body: { barcode, jobId, crew, notes, gps, timestamp,
+   Body: { barcode, jobId, crew,
+           dealer, productName, manufacturer,
+           notes, gps, timestamp,
            photoBase64, photoFilename, photoType }
-   - Finds the product in the job
-   - Marks it Damaged with notes
-   - Attaches photo if provided (Airtable requires a public URL, so we
-     accept a data URL as a fallback — in production you'd upload to an
-     image host. We store the base64 payload as a note if no URL provided.)
-   - Logs the damage report to Scan Log
+   - Looks for existing Products row matching barcode + job
+   - If found: marks it Damaged, attaches photo, updates notes
+   - If not found: creates a new Damaged Products row using the
+     session context (product name / manufacturer / dealer)
+   - Either way, logs the damage event to Scan Log
+   - Airtable attachments via API need a public URL — we attempt
+     to pass a data URL, but in production you'd upload to a host.
 ===================================================================== */
 
 const {
@@ -27,6 +30,9 @@ exports.handler = async function (event) {
     const barcode = (body.barcode || '').trim();
     const jobId = body.jobId;
     const crew = body.crew || 'unknown';
+    const dealer = body.dealer || '';
+    const productName = body.productName || '';
+    const manufacturer = body.manufacturer || '';
     const notes = body.notes || 'Damage reported';
     const gps = body.gps || '';
     const timestamp = body.timestamp || new Date().toISOString();
@@ -66,10 +72,12 @@ exports.handler = async function (event) {
       }
       await updateRecord('Products', productRecordId, fields);
     } else {
-      // No matching product — create a damaged entry so nothing is lost
+      // No matching product — create a damaged entry using session context
       const created = await createRecord('Products', {
         'Product ID': barcode,
-        'Description': 'Damaged item (unknown barcode)',
+        'Description': productName || 'Damaged item (unknown barcode)',
+        'Manufacturer': manufacturer,
+        'Dealer': dealer,
         'Job': [jobId],
         'Expected Quantity': 1,
         'Received Quantity': 0,

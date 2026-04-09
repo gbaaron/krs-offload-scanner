@@ -1,24 +1,38 @@
 /* =====================================================================
    KRS Scanner — Mobile barcode scanning app
-   - Camera barcode scanning via native BarcodeDetector w/ QuaggaJS fallback
-   - Airtable lookups via Netlify serverless functions
-   - Offline queue in localStorage, auto-sync when back online
-   - Big, glove-friendly UI with toast feedback + vibration + beep
+
+   New model:
+   - No pre-loaded manifest. Barcodes are not searched — they are logged.
+   - A "Scan Context" (Dealer + Product Name + Manufacturer) is set at
+     session start and persists until the user changes it.
+   - Each scan:
+       * If barcode is NEW for this job → creates a new Products row
+         using the current Scan Context, status = Received.
+       * If barcode is ALREADY logged for this job → warns "Already
+         logged" and does NOT duplicate. Scan event is still written
+         to Scan Log (full audit trail).
+   - Offline resilient: queues in localStorage, syncs when back online.
 ===================================================================== */
 
 (function () {
   'use strict';
 
+  // ---- Persistent state keys ----
+  const LS_CONTEXT = 'krs_scan_context';
+  const LS_QUEUE = 'krs_scan_queue';
+
   // ---- State ----
   const state = {
     crew: '',
-    jobId: '',           // Airtable record ID of selected job
+    jobId: '',
     jobName: '',
-    products: [],        // manifest for selected job
-    scanMode: 'offload', // 'offload' | 'damage'
-    gps: null,           // {lat, lon} or null
-    usingNativeDetector: false,
+    dealer: 'Michigan Office Environments',
+    productName: '',
+    manufacturer: '',
+    scanMode: 'offload',
+    gps: null,
     quaggaRunning: false,
+    sessionCount: 0,
     lastScanValue: '',
     lastScanAt: 0,
   };
@@ -31,12 +45,17 @@
     scanScreen: $('scanScreen'),
     crewSelect: $('crewSelect'),
     jobSelect: $('jobSelect'),
+    dealerInput: $('dealerInput'),
+    productInput: $('productInput'),
+    manufacturerInput: $('manufacturerInput'),
     startBtn: $('startBtn'),
     setupStatus: $('setupStatus'),
     switchBtn: $('switchBtn'),
+    ctxProduct: $('ctxProduct'),
+    ctxManufacturer: $('ctxManufacturer'),
+    ctxDealer: $('ctxDealer'),
+    changeContextBtn: $('changeContextBtn'),
     tallyScanned: $('tallyScanned'),
-    tallyTotal: $('tallyTotal'),
-    tallyProgress: $('tallyProgress'),
     scanBtn: $('scanBtn'),
     damageBtn: $('damageBtn'),
     lastScanBody: $('lastScanBody'),
@@ -46,12 +65,12 @@
     cameraViewport: $('cameraViewport'),
     cameraModeLabel: $('cameraModeLabel'),
     cancelCameraBtn: $('cancelCameraBtn'),
-    unknownModal: $('unknownModal'),
-    unknownBarcodeReadout: $('unknownBarcodeReadout'),
-    unknownDesc: $('unknownDesc'),
-    unknownMfr: $('unknownMfr'),
-    unknownCancel: $('unknownCancel'),
-    unknownSave: $('unknownSave'),
+    contextModal: $('contextModal'),
+    ctxEditProduct: $('ctxEditProduct'),
+    ctxEditManufacturer: $('ctxEditManufacturer'),
+    ctxEditDealer: $('ctxEditDealer'),
+    ctxCancel: $('ctxCancel'),
+    ctxSave: $('ctxSave'),
     damageModal: $('damageModal'),
     damageBarcodeReadout: $('damageBarcodeReadout'),
     damageNotes: $('damageNotes'),
@@ -59,7 +78,6 @@
     damageCancel: $('damageCancel'),
     damageSave: $('damageSave'),
     toastStack: $('toastStack'),
-    beepAudio: $('beepAudio'),
   };
 
   // Temporary holder for the barcode that triggered a modal
@@ -82,40 +100,31 @@
   // Feedback: beep + vibrate
   // ====================================================================
   function feedbackSuccess() {
-    try {
-      // Use Web Audio API to synthesize a short beep (data URI above is a placeholder)
-      const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
-        const ctx = new AudioCtx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.value = 880;
-        gain.gain.value = 0.15;
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start();
-        setTimeout(() => { osc.stop(); ctx.close(); }, 140);
-      }
-    } catch (e) { console.warn('Beep failed', e); }
+    playBeep(880, 0.15, 140);
     if (navigator.vibrate) navigator.vibrate(80);
   }
-
+  function feedbackWarn() {
+    playBeep(500, 0.15, 180);
+    if (navigator.vibrate) navigator.vibrate([60, 40, 60]);
+  }
   function feedbackError() {
+    playBeep(220, 0.15, 240);
+    if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+  }
+  function playBeep(freq, gainVal, ms) {
     try {
       const AudioCtx = window.AudioContext || window.webkitAudioContext;
-      if (AudioCtx) {
-        const ctx = new AudioCtx();
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.value = 220;
-        gain.gain.value = 0.15;
-        osc.connect(gain); gain.connect(ctx.destination);
-        osc.start();
-        setTimeout(() => { osc.stop(); ctx.close(); }, 240);
-      }
-    } catch (e) {}
-    if (navigator.vibrate) navigator.vibrate([80, 60, 80]);
+      if (!AudioCtx) return;
+      const ctx = new AudioCtx();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+      gain.gain.value = gainVal;
+      osc.connect(gain); gain.connect(ctx.destination);
+      osc.start();
+      setTimeout(() => { osc.stop(); ctx.close(); }, ms);
+    } catch (e) { console.warn('Beep failed', e); }
   }
 
   // ====================================================================
@@ -135,14 +144,13 @@
       { enableHighAccuracy: false, timeout: 6000, maximumAge: 60000 }
     );
   }
-
   function gpsString() {
     if (!state.gps) return '';
     return state.gps.lat + ',' + state.gps.lon;
   }
 
   // ====================================================================
-  // API helper — all calls go through Netlify functions
+  // API helper
   // ====================================================================
   async function api(path, opts) {
     opts = opts || {};
@@ -176,6 +184,7 @@
         const opt = document.createElement('option');
         opt.value = j.id;
         opt.dataset.name = j.name || '(Unnamed Job)';
+        opt.dataset.dealer = j.dealer || '';
         opt.textContent = (j.name || 'Unnamed') + (j.deliveryDate ? ' — ' + j.deliveryDate : '');
         el.jobSelect.appendChild(opt);
       });
@@ -189,50 +198,88 @@
   }
 
   // ====================================================================
-  // Load products for selected job
+  // Persist / restore scan context
   // ====================================================================
-  async function loadProducts() {
-    if (!state.jobId) return;
+  function saveContext() {
+    const payload = {
+      dealer: state.dealer,
+      productName: state.productName,
+      manufacturer: state.manufacturer,
+    };
+    try { localStorage.setItem(LS_CONTEXT, JSON.stringify(payload)); } catch (e) {}
+  }
+  function restoreContext() {
     try {
-      const data = await api('get-products?jobId=' + encodeURIComponent(state.jobId));
-      state.products = (data && data.products) || [];
-      updateTally();
-    } catch (err) {
-      console.error(err);
-      toast('Failed to load manifest', 'error');
-    }
+      const raw = localStorage.getItem(LS_CONTEXT);
+      if (!raw) return;
+      const p = JSON.parse(raw);
+      if (p.dealer) { state.dealer = p.dealer; el.dealerInput.value = p.dealer; }
+      if (p.productName) { state.productName = p.productName; el.productInput.value = p.productName; }
+      if (p.manufacturer) { state.manufacturer = p.manufacturer; el.manufacturerInput.value = p.manufacturer; }
+    } catch (e) { console.warn('restoreContext failed', e); }
   }
 
   // ====================================================================
-  // Tally counter update
+  // Render the on-screen context card
   // ====================================================================
-  function updateTally() {
-    const total = state.products.reduce((sum, p) => sum + (p.expected || 1), 0);
-    const scanned = state.products.reduce((sum, p) => sum + (p.received || 0), 0);
-    el.tallyScanned.textContent = scanned;
-    el.tallyTotal.textContent = total;
-    const pct = total > 0 ? Math.min(100, Math.round((scanned / total) * 100)) : 0;
-    el.tallyProgress.style.width = pct + '%';
+  function renderContextCard() {
+    el.ctxProduct.textContent = state.productName || 'Product not set';
+    el.ctxManufacturer.textContent = state.manufacturer || 'No manufacturer';
+    el.ctxDealer.textContent = state.dealer || 'No dealer';
   }
 
   // ====================================================================
-  // Validate setup + show scan screen
+  // Validate setup
   // ====================================================================
   function validateSetup() {
-    const ok = !!(el.crewSelect.value && el.jobSelect.value);
+    const ok = !!(
+      el.crewSelect.value &&
+      el.jobSelect.value &&
+      (el.productInput.value || '').trim()
+    );
     el.startBtn.disabled = !ok;
   }
 
   function beginScanning() {
     state.crew = el.crewSelect.value;
     state.jobId = el.jobSelect.value;
-    state.jobName = el.jobSelect.options[el.jobSelect.selectedIndex].dataset.name || '';
+    const jobOpt = el.jobSelect.options[el.jobSelect.selectedIndex];
+    state.jobName = jobOpt.dataset.name || '';
+    state.dealer = (el.dealerInput.value || '').trim() || jobOpt.dataset.dealer || '';
+    state.productName = (el.productInput.value || '').trim();
+    state.manufacturer = (el.manufacturerInput.value || '').trim();
+    saveContext();
+
     el.activeInfo.textContent = state.crew + ' @ ' + state.jobName;
     el.setupScreen.classList.add('hidden');
     el.scanScreen.classList.remove('hidden');
-    loadProducts();
+    renderContextCard();
     captureGPS();
     syncOfflineQueue();
+  }
+
+  // ====================================================================
+  // Change Scan Context modal
+  // ====================================================================
+  function openContextModal() {
+    el.ctxEditProduct.value = state.productName;
+    el.ctxEditManufacturer.value = state.manufacturer;
+    el.ctxEditDealer.value = state.dealer;
+    el.contextModal.classList.remove('hidden');
+  }
+  function saveContextModal() {
+    const product = (el.ctxEditProduct.value || '').trim();
+    if (!product) {
+      toast('Product name is required', 'error');
+      return;
+    }
+    state.productName = product;
+    state.manufacturer = (el.ctxEditManufacturer.value || '').trim();
+    state.dealer = (el.ctxEditDealer.value || '').trim();
+    saveContext();
+    renderContextCard();
+    el.contextModal.classList.add('hidden');
+    toast('Context updated', 'success');
   }
 
   // ====================================================================
@@ -242,26 +289,21 @@
     state.scanMode = mode;
     el.cameraModeLabel.textContent = mode === 'damage'
       ? 'Scan damaged item'
-      : 'Scanning for offload';
+      : 'Scanning — ' + (state.productName || 'no product set');
     el.cameraModal.classList.remove('hidden');
     el.cameraViewport.innerHTML = '';
 
-    // Try native BarcodeDetector first (Chrome Android)
     if ('BarcodeDetector' in window) {
       try {
         const detector = new BarcodeDetector({
           formats: ['code_128', 'code_39', 'upc_a', 'ean_13', 'qr_code']
         });
-        state.usingNativeDetector = true;
         await runNativeDetector(detector);
         return;
       } catch (err) {
         console.warn('Native BarcodeDetector failed, falling back to QuaggaJS', err);
       }
     }
-
-    // Fallback: QuaggaJS
-    state.usingNativeDetector = false;
     startQuagga();
   }
 
@@ -285,11 +327,9 @@
     }
     video.srcObject = stream;
     await video.play();
-
     video._stream = stream;
     state._nativeVideo = video;
 
-    // Loop: detect every ~300ms
     async function tick() {
       if (el.cameraModal.classList.contains('hidden')) return;
       try {
@@ -322,12 +362,7 @@
         },
       },
       decoder: {
-        readers: [
-          'code_128_reader',
-          'code_39_reader',
-          'upc_reader',
-          'ean_reader'
-        ]
+        readers: ['code_128_reader', 'code_39_reader', 'upc_reader', 'ean_reader']
       },
       locate: true,
     }, function (err) {
@@ -365,7 +400,7 @@
   // Handle a decoded barcode
   // ====================================================================
   function handleScan(code) {
-    // Debounce duplicate scans within 1.5s
+    // Debounce duplicate scans within 1.5s (same physical detection)
     const now = Date.now();
     if (code === state.lastScanValue && now - state.lastScanAt < 1500) return;
     state.lastScanValue = code;
@@ -380,25 +415,35 @@
       el.damageNotes.value = '';
       el.damagePhoto.value = '';
       el.damageModal.classList.remove('hidden');
-      feedbackSuccess();
+      feedbackWarn();
       return;
     }
 
-    // Offload mode: submit scan to API
-    submitOffloadScan(code);
+    submitScan(code);
   }
 
-  async function submitOffloadScan(code) {
+  // ====================================================================
+  // Submit a scan — create-or-warn flow
+  // ====================================================================
+  async function submitScan(code) {
+    if (!state.productName) {
+      toast('Set a product name first', 'error');
+      feedbackError();
+      return;
+    }
+
     const payload = {
       barcode: code,
       jobId: state.jobId,
       crew: state.crew,
+      dealer: state.dealer,
+      productName: state.productName,
+      manufacturer: state.manufacturer,
       scanType: 'Offload',
       gps: gpsString(),
       timestamp: new Date().toISOString(),
     };
 
-    // Offline? queue it
     if (!navigator.onLine) {
       queueOffline(payload);
       el.lastScanBody.textContent = code + ' (queued - offline)';
@@ -409,65 +454,34 @@
 
     try {
       const result = await api('scan-product', { method: 'POST', body: payload });
-      if (result && result.found) {
-        el.lastScanBody.textContent = (result.product && result.product.description)
-          ? result.product.description
-          : code;
-        toast('Scanned: ' + (result.product.description || code), 'success');
-        feedbackSuccess();
-        // Optimistically bump local received count
-        const hit = state.products.find((p) => p.productId === code);
-        if (hit) { hit.received = (hit.received || 0) + 1; hit.status = 'Received'; }
-        else await loadProducts();
-        updateTally();
-      } else {
-        // Not found → prompt user to add it
-        feedbackError();
-        pendingBarcode = code;
-        el.unknownBarcodeReadout.textContent = code;
-        el.unknownDesc.value = '';
-        el.unknownMfr.value = '';
-        el.unknownModal.classList.remove('hidden');
+
+      if (result && result.alreadyLogged) {
+        // Warn — already in the database for this job
+        const desc = (result.product && result.product.description) || 'item';
+        el.lastScanBody.textContent = code + ' — already logged as ' + desc;
+        toast('Already logged: ' + desc, 'warn');
+        feedbackWarn();
+        return;
       }
+
+      if (result && result.created) {
+        state.sessionCount += 1;
+        el.tallyScanned.textContent = state.sessionCount;
+        const desc = (result.product && result.product.description) || code;
+        el.lastScanBody.textContent = desc;
+        toast('Logged: ' + desc, 'success');
+        feedbackSuccess();
+        return;
+      }
+
+      console.warn('Unexpected scan response', result);
+      toast('Scan saved', 'success');
+      feedbackSuccess();
     } catch (err) {
       console.error(err);
       toast('Scan failed, queued offline', 'warn');
       queueOffline(payload);
       feedbackSuccess();
-    }
-  }
-
-  // ====================================================================
-  // Add-unknown-barcode flow
-  // ====================================================================
-  async function saveUnknownProduct() {
-    const desc = (el.unknownDesc.value || '').trim();
-    const mfr = (el.unknownMfr.value || '').trim();
-    if (!desc) { toast('Description required', 'error'); return; }
-
-    const payload = {
-      barcode: pendingBarcode,
-      jobId: state.jobId,
-      crew: state.crew,
-      description: desc,
-      manufacturer: mfr,
-      gps: gpsString(),
-      timestamp: new Date().toISOString(),
-    };
-
-    try {
-      el.unknownSave.disabled = true;
-      await api('add-product', { method: 'POST', body: payload });
-      toast('Added: ' + desc, 'success');
-      el.unknownModal.classList.add('hidden');
-      el.lastScanBody.textContent = desc + ' (NEW)';
-      feedbackSuccess();
-      await loadProducts();
-    } catch (err) {
-      console.error(err);
-      toast('Failed to add product', 'error');
-    } finally {
-      el.unknownSave.disabled = false;
     }
   }
 
@@ -480,21 +494,21 @@
 
     let photoBase64 = null;
     if (file) {
-      try {
-        photoBase64 = await fileToBase64(file);
-      } catch (err) {
-        console.warn('Photo read failed', err);
-      }
+      try { photoBase64 = await fileToBase64(file); }
+      catch (err) { console.warn('Photo read failed', err); }
     }
 
     const payload = {
       barcode: pendingBarcode,
       jobId: state.jobId,
       crew: state.crew,
+      dealer: state.dealer,
+      productName: state.productName,
+      manufacturer: state.manufacturer,
       notes: notes,
       gps: gpsString(),
       timestamp: new Date().toISOString(),
-      photoBase64: photoBase64,        // raw base64 (no data: prefix)
+      photoBase64: photoBase64,
       photoFilename: file ? file.name : null,
       photoType: file ? file.type : null,
     };
@@ -505,8 +519,7 @@
       toast('Damage reported', 'warn');
       el.damageModal.classList.add('hidden');
       el.lastScanBody.textContent = pendingBarcode + ' (DAMAGED)';
-      feedbackSuccess();
-      await loadProducts();
+      feedbackWarn();
     } catch (err) {
       console.error(err);
       toast('Damage report failed', 'error');
@@ -529,16 +542,14 @@
   }
 
   // ====================================================================
-  // Offline queue in localStorage
+  // Offline queue
   // ====================================================================
-  const OFFLINE_KEY = 'krs_scan_queue';
-
   function readQueue() {
-    try { return JSON.parse(localStorage.getItem(OFFLINE_KEY) || '[]'); }
+    try { return JSON.parse(localStorage.getItem(LS_QUEUE) || '[]'); }
     catch (e) { return []; }
   }
   function writeQueue(arr) {
-    localStorage.setItem(OFFLINE_KEY, JSON.stringify(arr));
+    localStorage.setItem(LS_QUEUE, JSON.stringify(arr));
     updateOfflineBar();
   }
   function queueOffline(payload) {
@@ -555,7 +566,6 @@
       el.offlineBar.classList.add('hidden');
     }
   }
-
   async function syncOfflineQueue() {
     if (!navigator.onLine) return;
     const q = readQueue();
@@ -563,18 +573,11 @@
     console.log('Syncing', q.length, 'queued scans');
     const remaining = [];
     for (const item of q) {
-      try {
-        await api('scan-product', { method: 'POST', body: item });
-      } catch (err) {
-        console.warn('Sync failed, keeping in queue', err);
-        remaining.push(item);
-      }
+      try { await api('scan-product', { method: 'POST', body: item }); }
+      catch (err) { console.warn('Sync failed, keeping in queue', err); remaining.push(item); }
     }
     writeQueue(remaining);
-    if (remaining.length === 0) {
-      toast('Offline scans synced', 'success');
-      await loadProducts();
-    }
+    if (remaining.length === 0) toast('Offline scans synced', 'success');
   }
 
   // ====================================================================
@@ -582,6 +585,9 @@
   // ====================================================================
   el.crewSelect.addEventListener('change', validateSetup);
   el.jobSelect.addEventListener('change', validateSetup);
+  el.productInput.addEventListener('input', validateSetup);
+  el.dealerInput.addEventListener('input', validateSetup);
+  el.manufacturerInput.addEventListener('input', validateSetup);
   el.startBtn.addEventListener('click', beginScanning);
 
   el.switchBtn.addEventListener('click', () => {
@@ -589,12 +595,13 @@
     el.setupScreen.classList.remove('hidden');
   });
 
+  el.changeContextBtn.addEventListener('click', openContextModal);
+  el.ctxCancel.addEventListener('click', () => el.contextModal.classList.add('hidden'));
+  el.ctxSave.addEventListener('click', saveContextModal);
+
   el.scanBtn.addEventListener('click', () => openCamera('offload'));
   el.damageBtn.addEventListener('click', () => openCamera('damage'));
   el.cancelCameraBtn.addEventListener('click', closeCamera);
-
-  el.unknownCancel.addEventListener('click', () => el.unknownModal.classList.add('hidden'));
-  el.unknownSave.addEventListener('click', saveUnknownProduct);
 
   el.damageCancel.addEventListener('click', () => el.damageModal.classList.add('hidden'));
   el.damageSave.addEventListener('click', saveDamageReport);
@@ -613,7 +620,9 @@
   // ====================================================================
   // Init
   // ====================================================================
+  restoreContext();
   loadJobs();
   updateOfflineBar();
+  validateSetup();
   console.log('KRS Scanner ready');
 })();

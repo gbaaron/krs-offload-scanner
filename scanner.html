@@ -21,10 +21,10 @@
     <button class="header-btn" id="switchBtn" title="Switch crew / job">&#9881;</button>
   </header>
 
-  <!-- Setup screen: pick crew member and job BEFORE scanning -->
+  <!-- Setup screen: pick crew + job + initial scan context -->
   <section class="setup-screen" id="setupScreen">
-    <h2>Who are you?</h2>
-    <p class="setup-help">Pick your name and the job you are working on.</p>
+    <h2>Start a Scan Session</h2>
+    <p class="setup-help">Pick who you are, which job you're working, and what you're about to scan.</p>
 
     <label class="big-label" for="crewSelect">Crew Member</label>
     <select class="big-select" id="crewSelect">
@@ -42,6 +42,20 @@
       <option value="">Loading jobs...</option>
     </select>
 
+    <div class="setup-divider">Scan Context</div>
+    <p class="setup-help setup-help-sub">
+      These values are applied to every scan until you change them.
+    </p>
+
+    <label class="big-label" for="dealerInput">Dealer</label>
+    <input class="big-input" id="dealerInput" type="text" value="Michigan Office Environments" placeholder="e.g. Michigan Office Environments">
+
+    <label class="big-label" for="productInput">Product Name <span class="required">*</span></label>
+    <input class="big-input" id="productInput" type="text" placeholder="e.g. HON 4-Drawer File Cabinet">
+
+    <label class="big-label" for="manufacturerInput">Manufacturer</label>
+    <input class="big-input" id="manufacturerInput" type="text" placeholder="e.g. HON">
+
     <button class="big-btn big-btn-primary" id="startBtn" disabled>
       START SCANNING
     </button>
@@ -52,15 +66,26 @@
   <!-- Main scanner screen (hidden until setup complete) -->
   <section class="scan-screen hidden" id="scanScreen">
 
+    <!-- Session context card — shows what the next scans will be tagged as -->
+    <div class="context-card">
+      <div class="context-header">
+        <div class="context-label">Scanning as</div>
+        <button class="context-change-btn" id="changeContextBtn">CHANGE</button>
+      </div>
+      <div class="context-product" id="ctxProduct">Product not set</div>
+      <div class="context-meta">
+        <span id="ctxManufacturer">No manufacturer</span>
+        <span class="context-meta-sep">&middot;</span>
+        <span id="ctxDealer">No dealer</span>
+      </div>
+    </div>
+
     <!-- Running tally -->
     <div class="tally-bar">
       <div class="tally-numbers">
-        <span id="tallyScanned">0</span> of <span id="tallyTotal">0</span>
+        <span id="tallyScanned">0</span>
       </div>
-      <div class="tally-label">items scanned</div>
-      <div class="tally-progress-wrap">
-        <div class="tally-progress-bar" id="tallyProgress"></div>
-      </div>
+      <div class="tally-label">items logged this session</div>
     </div>
 
     <!-- Big primary SCAN button -->
@@ -99,19 +124,24 @@
     </div>
   </div>
 
-  <!-- Unknown barcode modal -->
-  <div class="modal hidden" id="unknownModal">
+  <!-- Change Context modal: update product/mfr/dealer mid-session -->
+  <div class="modal hidden" id="contextModal">
     <div class="modal-card">
-      <h3>Unknown Barcode</h3>
-      <p>This barcode is not in the manifest for this job:</p>
-      <div class="barcode-readout" id="unknownBarcodeReadout">---</div>
-      <label class="big-label" for="unknownDesc">Description</label>
-      <input class="big-input" id="unknownDesc" type="text" placeholder="e.g. HON Task Chair, Black">
-      <label class="big-label" for="unknownMfr">Manufacturer</label>
-      <input class="big-input" id="unknownMfr" type="text" placeholder="e.g. HON">
+      <h3>Change Scan Context</h3>
+      <p class="modal-help">Every scan after this will be tagged with these values.</p>
+
+      <label class="big-label" for="ctxEditProduct">Product Name <span class="required">*</span></label>
+      <input class="big-input" id="ctxEditProduct" type="text" placeholder="e.g. HON Task Chair, Black">
+
+      <label class="big-label" for="ctxEditManufacturer">Manufacturer</label>
+      <input class="big-input" id="ctxEditManufacturer" type="text" placeholder="e.g. HON">
+
+      <label class="big-label" for="ctxEditDealer">Dealer</label>
+      <input class="big-input" id="ctxEditDealer" type="text" placeholder="e.g. Michigan Office Environments">
+
       <div class="modal-actions">
-        <button class="big-btn big-btn-cancel" id="unknownCancel">CANCEL</button>
-        <button class="big-btn big-btn-primary" id="unknownSave">ADD &amp; LOG</button>
+        <button class="big-btn big-btn-cancel" id="ctxCancel">CANCEL</button>
+        <button class="big-btn big-btn-primary" id="ctxSave">SAVE</button>
       </div>
     </div>
   </div>
@@ -134,11 +164,6 @@
 
   <!-- Toast notifications -->
   <div class="toast-stack" id="toastStack"></div>
-
-  <!-- Audio element for success beep -->
-  <audio id="beepAudio" preload="auto">
-    <source src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav">
-  </audio>
 
   <script src="js/scanner.js"></script>
 </body>

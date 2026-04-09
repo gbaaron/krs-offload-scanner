@@ -228,6 +228,74 @@ body.scanner-body {
   min-height: 18px;
 }
 
+/* Setup divider between session info and scan context */
+.setup-divider {
+  margin: 28px 0 6px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid #e87c2a;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 1.2px;
+  color: #e87c2a;
+}
+.setup-help-sub { margin-top: 0; }
+
+.required { color: #e87c2a; font-weight: 800; }
+
+/* Scan context card on the main scan screen */
+.context-card {
+  background: linear-gradient(135deg, #1a2744 0%, #243558 100%);
+  color: #fff;
+  border-radius: 14px;
+  padding: 16px 18px;
+  margin-bottom: 16px;
+  box-shadow: 0 4px 12px rgba(26,39,68,0.2);
+  border-left: 6px solid #e87c2a;
+}
+.context-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+.context-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  opacity: 0.7;
+}
+.context-change-btn {
+  background: #e87c2a;
+  color: #fff;
+  font-weight: 800;
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 6px 12px;
+  border-radius: 99px;
+  text-transform: uppercase;
+}
+.context-change-btn:active { transform: scale(0.96); }
+.context-product {
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1.2;
+  word-break: break-word;
+}
+.context-meta {
+  font-size: 12px;
+  opacity: 0.85;
+  margin-top: 4px;
+}
+.context-meta-sep { margin: 0 6px; opacity: 0.5; }
+
+/* Modal help text */
+.modal-help {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: #5a6378;
+}
+
 /* Big buttons */
 .big-btn {
   display: flex;
