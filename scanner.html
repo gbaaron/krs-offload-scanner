@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a2744">
+  <title>KRS Scanner</title>
+  <link rel="stylesheet" href="css/style.css">
+  <!-- QuaggaJS for barcode decoding (fallback for when BarcodeDetector is unavailable) -->
+  <script src="https://cdn.jsdelivr.net/npm/@ericblade/quagga2/dist/quagga.min.js"></script>
+</head>
+<body class="scanner-body">
+
+  <!-- Top bar: shows active job + crew member -->
+  <header class="scanner-header">
+    <a class="back-link" href="index.html">&larr;</a>
+    <div class="scanner-header-title">
+      <div class="scanner-brand">KRS Scanner</div>
+      <div class="scanner-active" id="activeInfo">Setup required</div>
+    </div>
+    <button class="header-btn" id="switchBtn" title="Switch crew / job">&#9881;</button>
+  </header>
+
+  <!-- Setup screen: pick crew member and job BEFORE scanning -->
+  <section class="setup-screen" id="setupScreen">
+    <h2>Who are you?</h2>
+    <p class="setup-help">Pick your name and the job you are working on.</p>
+
+    <label class="big-label" for="crewSelect">Crew Member</label>
+    <select class="big-select" id="crewSelect">
+      <option value="">-- Select your name --</option>
+      <option value="Aaron">Aaron</option>
+      <option value="Dillon">Dillon</option>
+      <option value="Jordan">Jordan</option>
+      <option value="Brody">Brody</option>
+      <option value="Gabe">Gabe</option>
+      <option value="Wyatt">Wyatt</option>
+    </select>
+
+    <label class="big-label" for="jobSelect">Active Job</label>
+    <select class="big-select" id="jobSelect">
+      <option value="">Loading jobs...</option>
+    </select>
+
+    <button class="big-btn big-btn-primary" id="startBtn" disabled>
+      START SCANNING
+    </button>
+
+    <div class="setup-status" id="setupStatus"></div>
+  </section>
+
+  <!-- Main scanner screen (hidden until setup complete) -->
+  <section class="scan-screen hidden" id="scanScreen">
+
+    <!-- Running tally -->
+    <div class="tally-bar">
+      <div class="tally-numbers">
+        <span id="tallyScanned">0</span> of <span id="tallyTotal">0</span>
+      </div>
+      <div class="tally-label">items scanned</div>
+      <div class="tally-progress-wrap">
+        <div class="tally-progress-bar" id="tallyProgress"></div>
+      </div>
+    </div>
+
+    <!-- Big primary SCAN button -->
+    <button class="big-btn big-btn-primary scan-btn" id="scanBtn">
+      <span class="scan-btn-icon">&#128247;</span>
+      SCAN
+    </button>
+
+    <!-- Secondary damage report button -->
+    <button class="big-btn big-btn-danger" id="damageBtn">
+      <span class="scan-btn-icon">&#9888;&#65039;</span>
+      REPORT DAMAGE
+    </button>
+
+    <!-- Last scan readout -->
+    <div class="last-scan-card" id="lastScanCard">
+      <div class="last-scan-label">Last scan</div>
+      <div class="last-scan-body" id="lastScanBody">Ready to scan...</div>
+    </div>
+
+    <!-- Offline queue indicator -->
+    <div class="offline-bar hidden" id="offlineBar">
+      <span>&#9888;&#65039; Offline</span>
+      <span id="offlineCount">0 queued</span>
+    </div>
+
+  </section>
+
+  <!-- Camera viewfinder modal -->
+  <div class="camera-modal hidden" id="cameraModal">
+    <div class="camera-modal-inner">
+      <div class="camera-mode-label" id="cameraModeLabel">Scanning...</div>
+      <div class="camera-viewport" id="cameraViewport"></div>
+      <div class="camera-hint">Point camera at barcode</div>
+      <button class="big-btn big-btn-cancel" id="cancelCameraBtn">CANCEL</button>
+    </div>
+  </div>
+
+  <!-- Unknown barcode modal -->
+  <div class="modal hidden" id="unknownModal">
+    <div class="modal-card">
+      <h3>Unknown Barcode</h3>
+      <p>This barcode is not in the manifest for this job:</p>
+      <div class="barcode-readout" id="unknownBarcodeReadout">---</div>
+      <label class="big-label" for="unknownDesc">Description</label>
+      <input class="big-input" id="unknownDesc" type="text" placeholder="e.g. HON Task Chair, Black">
+      <label class="big-label" for="unknownMfr">Manufacturer</label>
+      <input class="big-input" id="unknownMfr" type="text" placeholder="e.g. HON">
+      <div class="modal-actions">
+        <button class="big-btn big-btn-cancel" id="unknownCancel">CANCEL</button>
+        <button class="big-btn big-btn-primary" id="unknownSave">ADD &amp; LOG</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Damage report modal -->
+  <div class="modal hidden" id="damageModal">
+    <div class="modal-card">
+      <h3>Damage Report</h3>
+      <div class="barcode-readout" id="damageBarcodeReadout">---</div>
+      <label class="big-label" for="damageNotes">What's wrong?</label>
+      <textarea class="big-input" id="damageNotes" rows="3" placeholder="e.g. Leg cracked in transit"></textarea>
+      <label class="big-label" for="damagePhoto">Photo (optional)</label>
+      <input class="big-input" id="damagePhoto" type="file" accept="image/*" capture="environment">
+      <div class="modal-actions">
+        <button class="big-btn big-btn-cancel" id="damageCancel">CANCEL</button>
+        <button class="big-btn big-btn-danger" id="damageSave">SUBMIT DAMAGE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast notifications -->
+  <div class="toast-stack" id="toastStack"></div>
+
+  <!-- Audio element for success beep -->
+  <audio id="beepAudio" preload="auto">
+    <source src="data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=" type="audio/wav">
+  </audio>
+
+  <script src="js/scanner.js"></script>
+</body>
+</html>
