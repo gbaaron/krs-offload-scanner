@@ -410,9 +410,10 @@
   // Handle a decoded barcode
   // ====================================================================
   function handleScan(code) {
-    // Debounce duplicate scans within 1.5s (same physical detection)
+    // Debounce duplicate scans (same physical barcode re-detected by camera)
+    const debounce = state._debounceMs || 1500;
     const now = Date.now();
-    if (code === state.lastScanValue && now - state.lastScanAt < 1500) return;
+    if (code === state.lastScanValue && now - state.lastScanAt < debounce) return;
     state.lastScanValue = code;
     state.lastScanAt = now;
 
@@ -630,9 +631,49 @@
   });
 
   // ====================================================================
+  // Load site config (crew list, default dealer, debounce)
+  // ====================================================================
+  async function loadSiteConfig() {
+    try {
+      const data = await api('get-site-config');
+      const cfg = (data && data.config) || {};
+
+      // Populate crew dropdown from config
+      if (cfg.crew_members) {
+        const names = cfg.crew_members.split(',').map((n) => n.trim()).filter(Boolean);
+        if (names.length) {
+          el.crewSelect.innerHTML = '<option value="">-- Select your name --</option>';
+          names.forEach((name) => {
+            const opt = document.createElement('option');
+            opt.value = name;
+            opt.textContent = name;
+            el.crewSelect.appendChild(opt);
+          });
+        }
+      }
+
+      // Set default dealer if user hasn't already filled one
+      if (cfg.default_dealer && !state.dealer) {
+        state.dealer = cfg.default_dealer;
+        el.dealerInput.value = cfg.default_dealer;
+      }
+
+      // Scan debounce
+      if (cfg.scan_debounce_ms) {
+        state._debounceMs = parseInt(cfg.scan_debounce_ms, 10) || 1500;
+      }
+
+      console.log('Site config loaded', cfg);
+    } catch (err) {
+      console.warn('Could not load site config, using defaults', err);
+    }
+  }
+
+  // ====================================================================
   // Init
   // ====================================================================
   restoreContext();
+  loadSiteConfig();
   loadJobs();
   updateOfflineBar();
   validateSetup();

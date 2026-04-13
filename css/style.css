@@ -133,6 +133,18 @@ body.landing {
   border-top: 1px solid rgba(255,255,255,0.1);
 }
 
+.admin-link {
+  display: inline-block;
+  margin-top: 18px;
+  font-size: 12px;
+  color: rgba(255,255,255,0.5);
+  text-decoration: none;
+  border: 1px solid rgba(255,255,255,0.15);
+  padding: 6px 12px;
+  border-radius: 6px;
+}
+.admin-link:hover { color: #e87c2a; border-color: #e87c2a; text-decoration: none; }
+
 /* =====================================================================
    SCANNER APP (scanner.html)
 ===================================================================== */
@@ -813,3 +825,177 @@ body.dashboard-body {
   flex-wrap: wrap;
   gap: 8px;
 }
+
+/* =====================================================================
+   ADMIN PAGE (admin.html)
+===================================================================== */
+
+body.admin-body {
+  background: #eef0f5;
+  min-height: 100vh;
+}
+
+.admin-header {
+  background: #1a2744;
+  color: #fff;
+  padding: 16px 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  border-bottom: 4px solid #e87c2a;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.admin-brand { display: flex; align-items: center; gap: 12px; }
+.admin-back {
+  color: #fff;
+  font-size: 22px;
+  text-decoration: none;
+  padding: 4px 8px;
+}
+.admin-brand-title { font-weight: 800; font-size: 18px; }
+.admin-brand-sub { font-size: 11px; opacity: 0.65; }
+.admin-save-btn {
+  background: #e87c2a;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 12px 24px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  transition: opacity 0.15s;
+}
+.admin-save-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.admin-save-btn:hover:not(:disabled) { opacity: 0.9; }
+
+.admin-status {
+  padding: 10px 24px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #5a6378;
+  background: #fff;
+  border-bottom: 1px solid #dde0e8;
+}
+.admin-status-ok { color: #2e7d32; background: #e8f5e9; }
+.admin-status-err { color: #c62828; background: #fce4ec; }
+
+.admin-main {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 24px 20px 80px;
+}
+
+.admin-section {
+  margin-bottom: 32px;
+}
+.admin-section-title {
+  margin: 0 0 4px;
+  font-size: 18px;
+  font-weight: 800;
+  color: #1a2744;
+  border-bottom: 2px solid #e87c2a;
+  padding-bottom: 6px;
+  display: inline-block;
+}
+.admin-section-desc {
+  margin: 0 0 14px;
+  font-size: 13px;
+  color: #5a6378;
+}
+
+.admin-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+}
+@media (min-width: 640px) {
+  .admin-grid { grid-template-columns: 1fr 1fr; }
+}
+
+.admin-field-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 14px 16px;
+  box-shadow: 0 2px 6px rgba(26,39,68,0.06);
+}
+.admin-field-new { border-left: 4px solid #e87c2a; }
+.admin-field-label {
+  font-size: 12px;
+  font-weight: 800;
+  color: #1a2744;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+  font-family: monospace;
+}
+.admin-field-desc {
+  font-size: 11px;
+  color: #8a92a6;
+  margin-bottom: 8px;
+}
+.admin-new-badge {
+  display: inline-block;
+  background: #e87c2a;
+  color: #fff;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 99px;
+  vertical-align: middle;
+  font-family: -apple-system, sans-serif;
+}
+
+.admin-input {
+  width: 100%;
+  font-size: 14px;
+  padding: 10px 12px;
+  border: 2px solid #d1d5dc;
+  border-radius: 8px;
+  background: #fafbfd;
+  color: #1a2744;
+  font-family: inherit;
+}
+.admin-input:focus { outline: none; border-color: #e87c2a; }
+.admin-textarea {
+  min-height: 56px;
+  resize: vertical;
+  font-family: monospace;
+  font-size: 13px;
+}
+.admin-select {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.admin-section-add {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(26,39,68,0.06);
+}
+.admin-add-row {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 10px;
+}
+@media (min-width: 640px) {
+  .admin-add-row {
+    grid-template-columns: 1fr 1fr 120px;
+  }
+}
+.admin-add-btn {
+  background: #1a2744;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  padding: 10px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.admin-add-btn:hover { background: #243558; }

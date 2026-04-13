@@ -33,6 +33,8 @@
     filter: 'all',
     feedTimer: null,
     manifestTimer: null,
+    feedRefreshMs: 15000,
+    manifestRefreshMs: 30000,
   };
 
   // ====================================================================
@@ -262,8 +264,8 @@
   // ====================================================================
   function startTimers() {
     stopTimers();
-    state.feedTimer = setInterval(loadFeed, 15000);        // every 15s
-    state.manifestTimer = setInterval(loadDashboard, 30000); // every 30s
+    state.feedTimer = setInterval(loadFeed, state.feedRefreshMs);
+    state.manifestTimer = setInterval(loadDashboard, state.manifestRefreshMs);
   }
   function stopTimers() {
     if (state.feedTimer) clearInterval(state.feedTimer);
@@ -273,8 +275,36 @@
   }
 
   // ====================================================================
+  // Load site config (refresh intervals, branding)
+  // ====================================================================
+  async function loadSiteConfig() {
+    try {
+      const data = await api('get-site-config');
+      const cfg = (data && data.config) || {};
+      if (cfg.feed_refresh_ms) state.feedRefreshMs = parseInt(cfg.feed_refresh_ms, 10) || 15000;
+      if (cfg.dashboard_refresh_ms) state.manifestRefreshMs = parseInt(cfg.dashboard_refresh_ms, 10) || 30000;
+      if (cfg.dashboard_title) {
+        const sub = document.querySelector('.dash-brand-sub');
+        if (sub) sub.textContent = cfg.dashboard_title;
+      }
+      if (cfg.company_name) {
+        const brand = document.querySelector('.dash-brand-main');
+        if (brand) brand.textContent = cfg.company_name;
+      }
+      if (cfg.partner_name) {
+        const partner = document.querySelector('.partner-name');
+        if (partner) partner.textContent = cfg.partner_name;
+      }
+      console.log('Dashboard config loaded', cfg);
+    } catch (err) {
+      console.warn('Could not load site config, using defaults', err);
+    }
+  }
+
+  // ====================================================================
   // Init
   // ====================================================================
+  loadSiteConfig();
   loadJobs();
   console.log('KRS Dashboard ready');
 })();
