@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a2744">
+  <title>KRS — Import Paperwork</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="import-body">
+
+  <header class="import-header">
+    <div class="import-brand">
+      <a href="index.html" class="admin-back">&larr;</a>
+      <div>
+        <div class="import-brand-title">Import Paperwork</div>
+        <div class="import-brand-sub">Upload manufacturer docs, AI extracts the manifest</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Step 1: Setup + Upload -->
+  <section class="import-step" id="step1">
+    <div class="import-card">
+      <h2>1. Select job &amp; upload</h2>
+      <p class="import-help">Pick the job this paperwork belongs to, then drop the PDF.</p>
+
+      <label class="big-label" for="importJobSelect">Job</label>
+      <select class="big-select" id="importJobSelect">
+        <option value="">Loading jobs...</option>
+      </select>
+
+      <label class="big-label" for="importJobNumber">Job Number (optional)</label>
+      <input class="big-input" id="importJobNumber" type="text" placeholder="e.g. MOE-2026-0412">
+
+      <label class="big-label" for="importManufacturer">Manufacturer hint (optional)</label>
+      <input class="big-input" id="importManufacturer" type="text" placeholder="e.g. HON — helps AI identify products">
+
+      <label class="big-label" for="importDealer">Dealer</label>
+      <input class="big-input" id="importDealer" type="text" value="Michigan Office Environments">
+
+      <div class="import-drop" id="dropZone">
+        <div class="import-drop-icon">&#128196;</div>
+        <div class="import-drop-text">Drop PDF here or tap to upload</div>
+        <div class="import-drop-sub">Packing slips, delivery tickets, BOLs (max 4 MB)</div>
+        <input type="file" id="fileInput" accept=".pdf" style="display:none">
+      </div>
+      <div class="import-file-info hidden" id="fileInfo">
+        <span id="fileInfoName">—</span>
+        <button class="import-remove-btn" id="removeFileBtn">&times;</button>
+      </div>
+
+      <button class="big-btn big-btn-primary" id="extractBtn" disabled>
+        Extract Items with AI
+      </button>
+    </div>
+  </section>
+
+  <!-- Step 2: Processing spinner -->
+  <section class="import-step hidden" id="step2">
+    <div class="import-card import-card-center">
+      <div class="import-spinner"></div>
+      <h2>Analyzing document...</h2>
+      <p class="import-help">Claude is reading the paperwork and extracting line items. This can take 10-20 seconds.</p>
+    </div>
+  </section>
+
+  <!-- Step 3: Review extracted items -->
+  <section class="import-step hidden" id="step3">
+    <div class="import-card">
+      <h2>2. Review extracted items</h2>
+      <p class="import-help">Check the items below. Uncheck anything wrong. Edit inline if needed.</p>
+
+      <div class="import-meta-row" id="metaRow"></div>
+
+      <div class="import-table-scroll">
+        <table class="import-table" id="importTable">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="checkAll" checked></th>
+              <th>Description</th>
+              <th>Manufacturer</th>
+              <th>SKU</th>
+              <th>Qty</th>
+              <th>Room</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="importBody"></tbody>
+        </table>
+      </div>
+
+      <div class="import-actions">
+        <button class="big-btn big-btn-cancel" id="backBtn">Back</button>
+        <button class="big-btn big-btn-primary" id="importBtn">
+          Import <span id="importCount">0</span> items to Airtable
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Step 4: Done -->
+  <section class="import-step hidden" id="step4">
+    <div class="import-card import-card-center">
+      <div class="import-done-icon">&#9989;</div>
+      <h2>Manifest imported!</h2>
+      <p class="import-help" id="doneMsg">0 items added as Pending products for this job.</p>
+      <div class="import-actions">
+        <a class="big-btn big-btn-primary" href="scanner.html">Open Scanner</a>
+        <a class="big-btn big-btn-cancel" href="dashboard.html">View Dashboard</a>
+      </div>
+      <button class="import-another-btn" id="anotherBtn">Import another document</button>
+    </div>
+  </section>
+
+  <!-- Error state -->
+  <div class="import-error hidden" id="errorBar">
+    <span id="errorMsg">Something went wrong</span>
+    <button class="import-error-close" id="errorClose">&times;</button>
+  </div>
+
+  <script src="js/import.js"></script>
+</body>
+</html>

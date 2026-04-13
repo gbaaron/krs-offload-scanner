@@ -999,3 +999,181 @@ body.admin-body {
   cursor: pointer;
 }
 .admin-add-btn:hover { background: #243558; }
+
+/* =====================================================================
+   IMPORT PAPERWORK PAGE (import.html)
+===================================================================== */
+
+body.import-body {
+  background: #eef0f5;
+  min-height: 100vh;
+}
+
+.import-header {
+  background: #1a2744;
+  color: #fff;
+  padding: 16px 24px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-bottom: 4px solid #e87c2a;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.import-brand { display: flex; align-items: center; gap: 12px; }
+.import-brand-title { font-weight: 800; font-size: 18px; }
+.import-brand-sub { font-size: 11px; opacity: 0.65; }
+
+.import-step { padding: 20px; max-width: 960px; margin: 0 auto; }
+.import-card {
+  background: #fff;
+  border-radius: 14px;
+  padding: 28px 24px;
+  box-shadow: 0 2px 10px rgba(26,39,68,0.08);
+}
+.import-card h2 { margin: 0 0 6px; font-size: 20px; color: #1a2744; }
+.import-help { margin: 0 0 18px; font-size: 13px; color: #5a6378; }
+.import-card-center { text-align: center; }
+
+/* Drop zone */
+.import-drop {
+  border: 3px dashed #d1d5dc;
+  border-radius: 12px;
+  padding: 36px 20px;
+  text-align: center;
+  cursor: pointer;
+  margin-top: 16px;
+  transition: border-color 0.2s, background 0.2s;
+}
+.import-drop:hover, .import-drop-active {
+  border-color: #e87c2a;
+  background: #fff8f2;
+}
+.import-drop-icon { font-size: 48px; margin-bottom: 10px; }
+.import-drop-text { font-size: 16px; font-weight: 600; color: #1a2744; }
+.import-drop-sub { font-size: 12px; color: #8a92a6; margin-top: 6px; }
+
+.import-file-info {
+  margin-top: 14px;
+  padding: 12px 16px;
+  background: #e8f5e9;
+  border-radius: 8px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #2e7d32;
+}
+.import-remove-btn {
+  background: none;
+  color: #c62828;
+  font-size: 20px;
+  font-weight: 800;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
+
+/* Spinner */
+.import-spinner {
+  width: 56px;
+  height: 56px;
+  border: 5px solid #eef0f5;
+  border-top-color: #e87c2a;
+  border-radius: 50%;
+  animation: importSpin 0.8s linear infinite;
+  margin: 0 auto 20px;
+}
+@keyframes importSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Review table */
+.import-meta-row {
+  margin-bottom: 16px;
+  font-size: 13px;
+  color: #5a6378;
+  font-weight: 600;
+}
+.import-table-scroll { overflow-x: auto; margin-bottom: 16px; }
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 760px;
+}
+.import-table th {
+  text-align: left;
+  padding: 10px 8px;
+  background: #f4f5f8;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #5a6378;
+  border-bottom: 1px solid #dde0e8;
+}
+.import-table td {
+  padding: 6px 4px;
+  border-bottom: 1px solid #eef0f5;
+}
+.import-table th:first-child,
+.import-table td:first-child { width: 36px; text-align: center; }
+
+.import-cell-input {
+  width: 100%;
+  font-size: 13px;
+  padding: 7px 8px;
+  border: 1px solid #e0e3ea;
+  border-radius: 6px;
+  background: #fff;
+  color: #1a2744;
+}
+.import-cell-input:focus { outline: none; border-color: #e87c2a; }
+.import-cell-sm { max-width: 120px; }
+.import-cell-xs { max-width: 64px; text-align: center; }
+
+.import-actions {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 12px;
+  margin-top: 18px;
+}
+.import-actions .big-btn { margin-top: 0; }
+
+/* Done state */
+.import-done-icon { font-size: 56px; margin-bottom: 12px; }
+.import-another-btn {
+  margin-top: 20px;
+  background: none;
+  color: #5a6378;
+  font-size: 13px;
+  text-decoration: underline;
+  padding: 8px;
+}
+
+/* Error bar */
+.import-error {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #c62828;
+  color: #fff;
+  padding: 14px 20px;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 8px 24px rgba(198,40,40,0.35);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  z-index: 100;
+  max-width: calc(100% - 32px);
+}
+.import-error-close {
+  background: rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 18px;
+  padding: 4px 8px;
+  border-radius: 6px;
+}
