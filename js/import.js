@@ -27,6 +27,9 @@
     fileInfo: $('fileInfo'),
     fileInfoName: $('fileInfoName'),
     removeFileBtn: $('removeFileBtn'),
+    supplementDropZone: $('supplementDropZone'),
+    supplementFileInput: $('supplementFileInput'),
+    supplementList: $('supplementList'),
     extractBtn: $('extractBtn'),
     importBody: $('importBody'),
     importBtn: $('importBtn'),
@@ -72,6 +75,9 @@
   };
 
   let uploadedFile = null;
+  let supplementalFiles = [];
+  const MAX_FILE_BYTES = 4 * 1024 * 1024;
+  const MAX_COMBINED_BYTES = 4.5 * 1024 * 1024; // Netlify request cap after base64 inflation
   let extractedItems = [];
   let extractedMeta = {};
   let aiOriginalSnapshot = null; // frozen copy of what Claude originally returned
@@ -132,7 +138,7 @@
       showError('Please upload a PDF file.');
       return;
     }
-    if (file.size > 4 * 1024 * 1024) {
+    if (file.size > MAX_FILE_BYTES) {
       showError('File too large (max 4 MB). For bigger documents, split the PDF first.');
       return;
     }
@@ -149,6 +155,52 @@
     el.fileInfo.classList.add('hidden');
     el.dropZone.classList.remove('hidden');
     validateStep1();
+  }
+
+  // ---- Supplemental files (spec sheets, etc.) ----
+  function addSupplementalFiles(files) {
+    const added = [];
+    for (let i = 0; i < files.length; i++) {
+      const f = files[i];
+      if (!f || f.type !== 'application/pdf') {
+        showError('Supplements must be PDFs. Skipped: ' + (f && f.name));
+        continue;
+      }
+      if (f.size > MAX_FILE_BYTES) {
+        showError('Supplement too large (max 4 MB): ' + f.name);
+        continue;
+      }
+      supplementalFiles.push(f);
+      added.push(f);
+    }
+    renderSupplementList();
+    validateStep1();
+    return added.length;
+  }
+
+  function removeSupplementalAt(idx) {
+    supplementalFiles.splice(idx, 1);
+    renderSupplementList();
+    validateStep1();
+  }
+
+  function renderSupplementList() {
+    el.supplementList.innerHTML = '';
+    supplementalFiles.forEach((f, idx) => {
+      const row = document.createElement('div');
+      row.className = 'import-file-info';
+      row.innerHTML =
+        '<span>' + esc(f.name) + ' (' + (f.size / 1024).toFixed(0) + ' KB)</span>' +
+        '<button class="import-remove-btn" data-idx="' + idx + '">&times;</button>';
+      row.querySelector('button').addEventListener('click', () => removeSupplementalAt(idx));
+      el.supplementList.appendChild(row);
+    });
+  }
+
+  function combinedFileBytes() {
+    let total = uploadedFile ? uploadedFile.size : 0;
+    supplementalFiles.forEach((f) => { total += f.size; });
+    return total;
   }
 
   function validateStep1() {
@@ -173,17 +225,43 @@
     if (e.dataTransfer.files && e.dataTransfer.files[0]) handleFile(e.dataTransfer.files[0]);
   });
 
+  // Supplemental (spec sheets, multi-file) drop zone
+  el.supplementDropZone.addEventListener('click', () => el.supplementFileInput.click());
+  el.supplementFileInput.addEventListener('change', (e) => {
+    if (e.target.files && e.target.files.length) addSupplementalFiles(e.target.files);
+    el.supplementFileInput.value = '';
+  });
+  ['dragenter', 'dragover'].forEach((evt) => {
+    el.supplementDropZone.addEventListener(evt, (e) => { e.preventDefault(); el.supplementDropZone.classList.add('import-drop-active'); });
+  });
+  ['dragleave', 'drop'].forEach((evt) => {
+    el.supplementDropZone.addEventListener(evt, (e) => { e.preventDefault(); el.supplementDropZone.classList.remove('import-drop-active'); });
+  });
+  el.supplementDropZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    if (e.dataTransfer.files && e.dataTransfer.files.length) addSupplementalFiles(e.dataTransfer.files);
+  });
+
   // ---- Extract items (Step 1 → 2 → 3) ----
   el.extractBtn.addEventListener('click', async () => {
     if (!uploadedFile || !el.jobSelect.value) return;
+    if (combinedFileBytes() > MAX_COMBINED_BYTES) {
+      showError('Combined file size too large. Remove a supplement or use a smaller PDF.');
+      return;
+    }
     showStep(2);
 
     try {
       const base64 = await fileToBase64(uploadedFile);
+      const supplements = [];
+      for (const f of supplementalFiles) {
+        supplements.push({ name: f.name, pdfBase64: await fileToBase64(f) });
+      }
       const result = await api('parse-paperwork', {
         method: 'POST',
         body: {
           pdfBase64: base64,
+          supplementalPdfs: supplements,
           manufacturer: el.manufacturer.value.trim(),
           dealer: el.dealer.value.trim(),
         },
@@ -520,6 +598,8 @@
   // ---- Start over ----
   el.anotherBtn.addEventListener('click', () => {
     removeFile();
+    supplementalFiles = [];
+    renderSupplementList();
     extractedItems = [];
     extractedMeta = {};
     aiOriginalSnapshot = null;

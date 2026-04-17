@@ -14,7 +14,11 @@
 const { json, handleOptions } = require('./_airtable');
 
 const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
-const CLAUDE_MODEL = 'claude-sonnet-4-20250514';
+// Haiku 4.5 is fast enough to stay inside Netlify's 26s timeout for a single
+// pack list. Multi-doc extraction (pack list + spec sheets) needs Sonnet's
+// extra cross-document reasoning to match items correctly.
+const MODEL_SINGLE = 'claude-haiku-4-5';
+const MODEL_MULTI  = 'claude-sonnet-4-5';
 
 exports.handler = async function (event) {
   if (event.httpMethod === 'OPTIONS') return handleOptions();
@@ -26,6 +30,7 @@ exports.handler = async function (event) {
   try {
     const body = JSON.parse(event.body || '{}');
     const pdfBase64 = body.pdfBase64;
+    const supplements = Array.isArray(body.supplementalPdfs) ? body.supplementalPdfs : [];
     const hintManufacturer = body.manufacturer || '';
     const hintDealer = body.dealer || '';
     const hintNotes = body.notes || '';
@@ -33,6 +38,7 @@ exports.handler = async function (event) {
     if (!pdfBase64) return json(400, { error: 'Missing pdfBase64' });
 
     // Build the extraction prompt
+    const hasSupplements = supplements.length > 0;
     const systemPrompt = `You are a logistics document parser for a furniture moving company called KRS Moving Solutions. You extract structured product line items from delivery tickets, packing slips, bills of lading, and similar shipping documents.
 
 Always return ONLY valid JSON with no markdown fencing, no explanation text. The JSON must have this exact structure:
@@ -65,11 +71,17 @@ Rules:
 - barcode should only be filled if an actual barcode value (not just a SKU) is printed.
 - Be thorough — extract EVERY line item, even small accessories and components.
 - If manufacturer is not on the document but was provided as a hint, use the hint.
-- totalItemCount should be the sum of all quantities.`;
+- totalItemCount should be the sum of all quantities.${hasSupplements ? `
+
+Multi-document handling:
+- The FIRST document is the pack list / primary doc. It is the SOURCE OF TRUTH for which items exist and their quantities.
+- Any ADDITIONAL documents are spec sheets or supplements. Use them ONLY to enrich existing items with extra detail (dimensions, fabric, finish, color, options) — add this detail to the "notes" or "description" field of the matching item.
+- Do NOT create new line items from the spec sheets. If a product is in the spec sheet but NOT on the pack list, ignore it.
+- Match items between documents by SKU/model number first, then by description.` : ''}`;
 
     const userContent = [];
 
-    // Attach the PDF as a document
+    // Primary PDF (pack list)
     userContent.push({
       type: 'document',
       source: {
@@ -79,8 +91,28 @@ Rules:
       },
     });
 
+    // Supplemental PDFs (spec sheets) — up to whatever Claude accepts
+    supplements.forEach((s, i) => {
+      if (!s || !s.pdfBase64) return;
+      userContent.push({
+        type: 'document',
+        source: {
+          type: 'base64',
+          media_type: 'application/pdf',
+          data: s.pdfBase64,
+        },
+      });
+    });
+
     // Add the extraction instruction
-    let instruction = 'Extract all product line items from this document as JSON.';
+    let instruction;
+    if (hasSupplements) {
+      const names = supplements.map((s) => s.name || 'supplement').join(', ');
+      instruction = 'The first document is the pack list (source of truth). The following ' + supplements.length +
+        ' document(s) are supplemental spec sheets (' + names + ') — use them only to enrich existing items, not to create new ones. Extract all product line items from the pack list as JSON.';
+    } else {
+      instruction = 'Extract all product line items from this document as JSON.';
+    }
     if (hintManufacturer) instruction += ' The manufacturer is: ' + hintManufacturer + '.';
     if (hintDealer) instruction += ' The dealer/customer is: ' + hintDealer + '.';
     if (hintNotes) instruction += ' Additional context: ' + hintNotes;
@@ -97,7 +129,7 @@ Rules:
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: CLAUDE_MODEL,
+        model: hasSupplements ? MODEL_MULTI : MODEL_SINGLE,
         max_tokens: 8192,
         system: systemPrompt,
         messages: [{ role: 'user', content: userContent }],

@@ -39,6 +39,7 @@
       <label class="big-label" for="importDealer">Dealer</label>
       <input class="big-input" id="importDealer" type="text" value="Michigan Office Environments">
 
+      <label class="big-label">Pack list / primary doc</label>
       <div class="import-drop" id="dropZone">
         <div class="import-drop-icon">&#128196;</div>
         <div class="import-drop-text">Drop PDF here or tap to upload</div>
@@ -49,6 +50,15 @@
         <span id="fileInfoName">—</span>
         <button class="import-remove-btn" id="removeFileBtn">&times;</button>
       </div>
+
+      <label class="big-label">Spec sheets &amp; supplements (optional)</label>
+      <div class="import-drop" id="supplementDropZone">
+        <div class="import-drop-icon">&#128221;</div>
+        <div class="import-drop-text">Drop spec sheets here or tap to add</div>
+        <div class="import-drop-sub">Multiple PDFs OK. Used to enrich descriptions (dimensions, fabric, finish).</div>
+        <input type="file" id="supplementFileInput" accept=".pdf" multiple style="display:none">
+      </div>
+      <div id="supplementList"></div>
 
       <button class="big-btn big-btn-primary" id="extractBtn" disabled>
         Extract Items with AI

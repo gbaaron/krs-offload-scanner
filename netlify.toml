@@ -2,6 +2,9 @@
   functions = "netlify/functions"
   publish = "."
 
+[functions."parse-paperwork"]
+  timeout = 26
+
 [[redirects]]
   from = "/api/*"
   to = "/.netlify/functions/:splat"
