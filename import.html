@@ -68,10 +68,41 @@
   <!-- Step 3: Review extracted items -->
   <section class="import-step hidden" id="step3">
     <div class="import-card">
-      <h2>2. Review extracted items</h2>
-      <p class="import-help">Check the items below. Uncheck anything wrong. Edit inline if needed.</p>
+      <h2>2. Review &amp; edit</h2>
+      <p class="import-help">Verify what AI found. Edit inline, then choose an action below.</p>
 
-      <div class="import-meta-row" id="metaRow"></div>
+      <!-- Editable meta fields -->
+      <div class="import-meta-editor">
+        <div class="import-meta-grid">
+          <div class="import-meta-field">
+            <label>Document Type</label>
+            <select id="metaDocType">
+              <option value="">—</option>
+              <option value="Packing List">Packing List</option>
+              <option value="Bill of Lading">Bill of Lading</option>
+              <option value="Delivery Ticket">Delivery Ticket</option>
+              <option value="Invoice">Invoice</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="import-meta-field">
+            <label>Order / PO #</label>
+            <input type="text" id="metaOrderNumber" placeholder="—">
+          </div>
+          <div class="import-meta-field">
+            <label>Dealer</label>
+            <input type="text" id="metaDealer" placeholder="—">
+          </div>
+          <div class="import-meta-field">
+            <label>Ship Date</label>
+            <input type="date" id="metaShipDate">
+          </div>
+          <div class="import-meta-field">
+            <label>Total Qty (doc)</label>
+            <input type="number" id="metaTotalQty" min="0" placeholder="—">
+          </div>
+        </div>
+      </div>
 
       <div class="import-table-scroll">
         <table class="import-table" id="importTable">
@@ -90,12 +121,20 @@
         </table>
       </div>
 
-      <div class="import-actions">
+      <!-- Action bar -->
+      <div class="import-action-bar">
         <button class="big-btn big-btn-cancel" id="backBtn">Back</button>
-        <button class="big-btn big-btn-primary" id="importBtn">
-          Import <span id="importCount">0</span> items to Airtable
-        </button>
+        <div class="import-action-group">
+          <button class="import-action-btn" id="saveChangesBtn">&#128190; Save Changes</button>
+          <button class="import-action-btn" id="roomDocBtn">&#128196; Room Document</button>
+          <button class="import-action-btn" id="quoteBtn">&#128176; Quote</button>
+          <button class="big-btn big-btn-primary" id="importBtn">
+            Import <span id="importCount">0</span> items
+          </button>
+        </div>
       </div>
+
+      <div class="import-save-badge hidden" id="saveBadge">&#10003; Saved to AI training log</div>
     </div>
   </section>
 
@@ -117,6 +156,69 @@
   <div class="import-error hidden" id="errorBar">
     <span id="errorMsg">Something went wrong</span>
     <button class="import-error-close" id="errorClose">&times;</button>
+  </div>
+
+  <!-- Room Document modal -->
+  <div class="import-modal hidden" id="roomDocModal">
+    <div class="import-modal-box">
+      <div class="import-modal-header">
+        <h3>Room Document</h3>
+        <button class="import-modal-close" id="roomDocClose">&times;</button>
+      </div>
+      <p class="import-help">Copy and paste into Google Docs or an email.</p>
+      <textarea class="import-modal-text" id="roomDocText" readonly></textarea>
+      <button class="big-btn big-btn-primary" id="roomDocCopy">Copy to Clipboard</button>
+    </div>
+  </div>
+
+  <!-- Quote modal -->
+  <div class="import-modal hidden" id="quoteModal">
+    <div class="import-modal-box import-modal-wide">
+      <div class="import-modal-header">
+        <h3>Pricing Quote</h3>
+        <button class="import-modal-close" id="quoteClose">&times;</button>
+      </div>
+      <div id="quoteSpinner" class="import-modal-spinner">
+        <div class="import-spinner"></div>
+        <p>Looking up pricing...</p>
+      </div>
+      <div id="quoteContent" class="hidden">
+        <table class="import-table import-quote-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>SKU</th>
+              <th>Qty</th>
+              <th>Unit $</th>
+              <th>Labor</th>
+              <th>Line Total</th>
+            </tr>
+          </thead>
+          <tbody id="quoteBody"></tbody>
+          <tfoot id="quoteFoot"></tfoot>
+        </table>
+        <div id="quoteUnmatched" class="import-quote-unmatched hidden">
+          <strong>Not found in pricing database:</strong>
+          <ul id="quoteUnmatchedList"></ul>
+        </div>
+        <button class="big-btn big-btn-primary" id="quoteCopy">Copy Quote Text</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job number prompt (before import) -->
+  <div class="import-modal hidden" id="jobNumModal">
+    <div class="import-modal-box import-modal-sm">
+      <div class="import-modal-header">
+        <h3>Job Number</h3>
+      </div>
+      <p class="import-help">Tag these items with a job number in Airtable (optional).</p>
+      <input class="big-input" id="jobNumInput" type="text" placeholder="e.g. MOE-2026-0412">
+      <div class="import-actions">
+        <button class="big-btn big-btn-cancel" id="jobNumSkip">Skip</button>
+        <button class="big-btn big-btn-primary" id="jobNumConfirm">Confirm &amp; Import</button>
+      </div>
+    </div>
   </div>
 
   <script src="js/import.js"></script>
