@@ -116,6 +116,7 @@
       });
       saveDealerSession(result);
       showDealerSession(result);
+      showChatToggle(true);
       loadJobs();
     } catch (err) {
       el.loginError.textContent = err.message.includes('401')
@@ -134,6 +135,9 @@
   el.logoutBtn.addEventListener('click', () => {
     clearDealerSession();
     stopTimers();
+    if (chat.pollTimer) { clearInterval(chat.pollTimer); chat.pollTimer = null; }
+    showChatToggle(false);
+    chatEl.panel.classList.remove('open');
     el.dealerSession.style.display = 'none';
     el.jobSelect.innerHTML = '<option value="">-- Select a job --</option>';
     el.manifestBody.innerHTML = '<tr><td colspan="7" class="empty-state">Select a job to view manifest</td></tr>';
@@ -400,6 +404,149 @@
   }
 
   // ====================================================================
+  // Dealer chatbot
+  // ====================================================================
+  const chat = {
+    open: false,
+    history: [],       // { role, content, ts } for conversation context
+    conversationId: null,
+    escalated: false,
+    pollTimer: null,
+    unread: 0,
+  };
+
+  const chatEl = {
+    toggle: $('chatToggle'),
+    panel: $('chatPanel'),
+    close: $('chatClose'),
+    messages: $('chatMessages'),
+    typing: $('chatTyping'),
+    input: $('chatInput'),
+    send: $('chatSend'),
+    badge: $('chatBadge'),
+  };
+
+  function chatAddMessage(role, content) {
+    const div = document.createElement('div');
+    div.className = 'chat-msg ' + role;
+    div.textContent = content;
+    chatEl.messages.appendChild(div);
+    chatEl.messages.scrollTop = chatEl.messages.scrollHeight;
+    if (!chat.open && role !== 'user') {
+      chat.unread++;
+      chatEl.badge.textContent = chat.unread;
+      chatEl.badge.classList.add('visible');
+    }
+    return div;
+  }
+
+  function chatSetTyping(visible) {
+    chatEl.typing.classList.toggle('visible', visible);
+    if (visible) chatEl.messages.scrollTop = chatEl.messages.scrollHeight;
+  }
+
+  async function chatSend() {
+    const text = chatEl.input.value.trim();
+    if (!text || chatEl.send.disabled) return;
+
+    chatEl.input.value = '';
+    chatEl.input.style.height = 'auto';
+    chatEl.send.disabled = true;
+    chatAddMessage('user', text);
+    chatSetTyping(true);
+
+    // Keep last 6 turns as context (3 user + 3 assistant)
+    const history = chat.history.slice(-6);
+
+    try {
+      const result = await api('dealer-chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dealerUserId: state.dealer ? state.dealer.id : null,
+          dealerName: state.dealer ? state.dealer.name : null,
+          jobId: state.jobId || null,
+          jobName: state.jobName || null,
+          message: text,
+          conversationId: chat.conversationId,
+          history,
+        }),
+      });
+
+      chatSetTyping(false);
+      chatAddMessage('bot', result.reply);
+      chat.history.push({ role: 'user', content: text });
+      chat.history.push({ role: 'assistant', content: result.reply });
+      chat.conversationId = result.conversationId;
+
+      if (result.escalated) {
+        chat.escalated = true;
+        const notice = document.createElement('div');
+        notice.className = 'chat-msg escalated-notice';
+        notice.textContent = '⏳ Waiting for KRS team response…';
+        chatEl.messages.appendChild(notice);
+        chatEl.messages.scrollTop = chatEl.messages.scrollHeight;
+        startConversationPoll();
+      }
+    } catch (err) {
+      chatSetTyping(false);
+      chatAddMessage('bot', 'Sorry, something went wrong. Please try again.');
+      console.error('chat send error:', err);
+    } finally {
+      chatEl.send.disabled = false;
+      chatEl.input.focus();
+    }
+  }
+
+  // Poll for Aaron's Telegram reply
+  function startConversationPoll() {
+    if (chat.pollTimer || !chat.conversationId) return;
+    chat.pollTimer = setInterval(async () => {
+      try {
+        const data = await api('poll-conversation?conversationId=' + encodeURIComponent(chat.conversationId));
+        if (data.status === 'Resolved' && data.krsResponse) {
+          clearInterval(chat.pollTimer);
+          chat.pollTimer = null;
+          chat.escalated = false;
+          // Remove waiting notice
+          const notices = chatEl.messages.querySelectorAll('.escalated-notice');
+          notices.forEach((n) => n.remove());
+          chatAddMessage('krs', data.krsResponse);
+          chat.history.push({ role: 'krs', content: data.krsResponse });
+        }
+      } catch (e) { /* silent — keep polling */ }
+    }, 10000); // poll every 10 seconds
+  }
+
+  // Toggle chat open/closed
+  function toggleChat() {
+    chat.open = !chat.open;
+    chatEl.panel.classList.toggle('open', chat.open);
+    if (chat.open) {
+      chat.unread = 0;
+      chatEl.badge.classList.remove('visible');
+      chatEl.input.focus();
+    }
+  }
+
+  chatEl.toggle.addEventListener('click', toggleChat);
+  chatEl.close.addEventListener('click', toggleChat);
+  chatEl.send.addEventListener('click', chatSend);
+  chatEl.input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); chatSend(); }
+  });
+  // Auto-grow textarea
+  chatEl.input.addEventListener('input', () => {
+    chatEl.input.style.height = 'auto';
+    chatEl.input.style.height = Math.min(chatEl.input.scrollHeight, 80) + 'px';
+  });
+
+  // Show chat button only when dealer is logged in
+  function showChatToggle(show) {
+    if (chatEl.toggle) chatEl.toggle.style.display = show ? 'flex' : 'none';
+  }
+
+  // ====================================================================
   // Init
   // ====================================================================
   loadSiteConfig();
@@ -408,6 +555,7 @@
   if (existingSession) {
     state.dealer = existingSession;
     showDealerSession(existingSession);
+    showChatToggle(true);
     loadJobs();
   }
   // If no session, the overlay stays visible — user must log in
