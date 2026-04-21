@@ -1,5 +1,6 @@
 /* =====================================================================
    KRS Dashboard — Live offload/install status
+   - Dealer login overlay: Airtable DealerUsers auth
    - Polls Netlify functions for job manifest + scan log
    - Progress bar, summary cards, filterable manifest table
    - Live scan feed, CSV export, auto-refresh
@@ -24,6 +25,17 @@
     feedList: $('feedList'),
     lastUpdated: $('lastUpdated'),
     filterBtns: document.querySelectorAll('.filter-btn'),
+    // Dealer login overlay
+    loginOverlay: $('dealerLoginOverlay'),
+    loginEmail: $('loginEmail'),
+    loginPassword: $('loginPassword'),
+    loginError: $('loginError'),
+    loginBtn: $('loginBtn'),
+    // Dealer session display
+    dealerSession: $('dealerSession'),
+    dealerSessionName: $('dealerSessionName'),
+    dealerSessionCompany: $('dealerSessionCompany'),
+    logoutBtn: $('logoutBtn'),
   };
 
   const state = {
@@ -35,25 +47,113 @@
     manifestTimer: null,
     feedRefreshMs: 15000,
     manifestRefreshMs: 30000,
+    dealer: null, // { id, name, email, company } from localStorage
   };
+
+  const DEALER_KEY = 'krs_dealer';
 
   // ====================================================================
   // API helper
   // ====================================================================
-  async function api(path) {
+  async function api(path, opts) {
     const url = '/.netlify/functions/' + path;
     console.log('Dashboard API ->', url);
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('API ' + path + ' failed: ' + res.status);
+    const res = await fetch(url, opts || {});
+    if (!res.ok) throw new Error('API ' + path + ': ' + res.status);
     return res.json();
   }
+
+  // ====================================================================
+  // Dealer session management
+  // ====================================================================
+  function getDealerSession() {
+    try {
+      const raw = localStorage.getItem(DEALER_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function saveDealerSession(dealer) {
+    localStorage.setItem(DEALER_KEY, JSON.stringify(dealer));
+    state.dealer = dealer;
+  }
+
+  function clearDealerSession() {
+    localStorage.removeItem(DEALER_KEY);
+    state.dealer = null;
+  }
+
+  function showDealerSession(dealer) {
+    el.dealerSessionName.textContent = dealer.name;
+    el.dealerSessionCompany.textContent = dealer.company || 'Dealer Portal';
+    el.dealerSession.style.display = 'flex';
+    el.loginOverlay.classList.add('hidden');
+  }
+
+  // ====================================================================
+  // Login form
+  // ====================================================================
+  async function handleLogin() {
+    const email = el.loginEmail.value.trim();
+    const password = el.loginPassword.value;
+    el.loginError.textContent = '';
+
+    if (!email || !password) {
+      el.loginError.textContent = 'Please enter your email and password.';
+      return;
+    }
+
+    el.loginBtn.disabled = true;
+    el.loginBtn.textContent = 'Signing in…';
+
+    try {
+      const result = await api('dealer-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password }),
+      });
+      saveDealerSession(result);
+      showDealerSession(result);
+      loadJobs();
+    } catch (err) {
+      el.loginError.textContent = err.message.includes('401')
+        ? 'Invalid email or password.'
+        : 'Login failed. Please try again.';
+    } finally {
+      el.loginBtn.disabled = false;
+      el.loginBtn.textContent = 'Sign In';
+    }
+  }
+
+  el.loginBtn.addEventListener('click', handleLogin);
+  el.loginEmail.addEventListener('keydown', (e) => { if (e.key === 'Enter') el.loginPassword.focus(); });
+  el.loginPassword.addEventListener('keydown', (e) => { if (e.key === 'Enter') handleLogin(); });
+
+  el.logoutBtn.addEventListener('click', () => {
+    clearDealerSession();
+    stopTimers();
+    el.dealerSession.style.display = 'none';
+    el.jobSelect.innerHTML = '<option value="">-- Select a job --</option>';
+    el.manifestBody.innerHTML = '<tr><td colspan="7" class="empty-state">Select a job to view manifest</td></tr>';
+    el.feedList.innerHTML = '<li class="feed-empty">No scans yet</li>';
+    state.jobId = '';
+    el.loginOverlay.classList.remove('hidden');
+  });
 
   // ====================================================================
   // Load jobs into the dropdown
   // ====================================================================
   async function loadJobs() {
     try {
-      const data = await api('get-jobs');
+      let data;
+      if (state.dealer) {
+        // Dealer: only show authorized jobs
+        data = await api('get-dealer-jobs?dealerUserId=' + encodeURIComponent(state.dealer.id));
+      } else {
+        data = await api('get-jobs');
+      }
       const jobs = (data && data.jobs) || [];
       el.jobSelect.innerHTML = '<option value="">-- Select a job --</option>';
       jobs.forEach((j) => {
@@ -66,7 +166,7 @@
         el.jobSelect.appendChild(opt);
       });
       if (!jobs.length) {
-        el.jobSelect.innerHTML = '<option value="">No open jobs</option>';
+        el.jobSelect.innerHTML = '<option value="">No jobs assigned</option>';
       }
     } catch (err) {
       console.error(err);
@@ -152,8 +252,7 @@
   function formatDate(iso) {
     if (!iso) return '';
     try {
-      const d = new Date(iso);
-      return d.toLocaleString();
+      return new Date(iso).toLocaleString();
     } catch (e) {
       return iso;
     }
@@ -295,7 +394,6 @@
         const partner = document.querySelector('.partner-name');
         if (partner) partner.textContent = cfg.partner_name;
       }
-      console.log('Dashboard config loaded', cfg);
     } catch (err) {
       console.warn('Could not load site config, using defaults', err);
     }
@@ -305,6 +403,14 @@
   // Init
   // ====================================================================
   loadSiteConfig();
-  loadJobs();
+
+  const existingSession = getDealerSession();
+  if (existingSession) {
+    state.dealer = existingSession;
+    showDealerSession(existingSession);
+    loadJobs();
+  }
+  // If no session, the overlay stays visible — user must log in
+
   console.log('KRS Dashboard ready');
 })();
