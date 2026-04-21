@@ -194,10 +194,9 @@
       });
       el.setupStatus.textContent = jobs.length + ' job(s) available';
     } catch (err) {
-      console.error(err);
-      el.setupStatus.textContent = 'Could not load jobs. Check connection.';
-      el.jobSelect.innerHTML = '<option value="">Unable to load jobs</option>';
-      toast('Failed to load jobs', 'error');
+      console.warn('Could not load jobs:', err.message);
+      el.setupStatus.textContent = '';
+      el.jobSelect.innerHTML = '<option value="">-- No active jobs --</option>';
     }
   }
 
@@ -241,7 +240,6 @@
   function validateSetup() {
     const ok = !!(
       el.crewSelect.value &&
-      el.jobSelect.value &&
       (el.productInput.value || '').trim()
     );
     el.startBtn.disabled = !ok;
