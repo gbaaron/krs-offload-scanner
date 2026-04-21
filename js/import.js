@@ -242,6 +242,25 @@
     if (e.dataTransfer.files && e.dataTransfer.files.length) addSupplementalFiles(e.dataTransfer.files);
   });
 
+  // ---- Generate a simple unique job ID ----
+  function generateJobId() {
+    return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+  }
+
+  // ---- Poll get-extraction until done or failed ----
+  async function pollExtraction(jobId, maxWaitMs) {
+    const start = Date.now();
+    const interval = 3000; // poll every 3 seconds
+    while (Date.now() - start < maxWaitMs) {
+      await new Promise((r) => setTimeout(r, interval));
+      const status = await api('get-extraction?jobId=' + encodeURIComponent(jobId));
+      if (status.status === 'done') return status;
+      if (status.status === 'failed') throw new Error(status.error || 'Extraction failed in background');
+      // status === 'processing' — keep polling
+    }
+    throw new Error('Extraction timed out after ' + Math.round(maxWaitMs / 1000) + 's. Try a smaller PDF.');
+  }
+
   // ---- Extract items (Step 1 → 2 → 3) ----
   el.extractBtn.addEventListener('click', async () => {
     if (!uploadedFile) return;
@@ -257,15 +276,22 @@
       for (const f of supplementalFiles) {
         supplements.push({ name: f.name, pdfBase64: await fileToBase64(f) });
       }
-      const result = await api('parse-paperwork', {
+
+      // Fire background extraction — returns 202 immediately with no body
+      const jobId = generateJobId();
+      await api('parse-paperwork-background', {
         method: 'POST',
         body: {
+          jobId,
           pdfBase64: base64,
           supplementalPdfs: supplements,
           manufacturer: el.manufacturer.value.trim(),
           dealer: el.dealer.value.trim(),
         },
       });
+
+      // Poll for result (up to 3 minutes)
+      const result = await pollExtraction(jobId, 180000);
 
       extractedItems = result.items || [];
       extractedMeta = result.meta || {};
