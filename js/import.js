@@ -204,7 +204,7 @@
   }
 
   function validateStep1() {
-    el.extractBtn.disabled = !(uploadedFile && el.jobSelect.value);
+    el.extractBtn.disabled = !uploadedFile;
   }
 
   el.dropZone.addEventListener('click', () => el.fileInput.click());
@@ -244,7 +244,7 @@
 
   // ---- Extract items (Step 1 → 2 → 3) ----
   el.extractBtn.addEventListener('click', async () => {
-    if (!uploadedFile || !el.jobSelect.value) return;
+    if (!uploadedFile) return;
     if (combinedFileBytes() > MAX_COMBINED_BYTES) {
       showError('Combined file size too large. Remove a supplement or use a smaller PDF.');
       return;
