@@ -20,6 +20,17 @@ const CLAUDE_URL = 'https://api.anthropic.com/v1/messages';
 const MODEL_SINGLE = 'claude-haiku-4-5';
 const MODEL_MULTI  = 'claude-sonnet-4-5';
 
+// Pricing per token (USD) — update if Anthropic changes rates
+const PRICING = {
+  [MODEL_SINGLE]: { input: 0.80 / 1e6, output: 4.00 / 1e6 },  // Haiku
+  [MODEL_MULTI]:  { input: 3.00 / 1e6, output: 15.00 / 1e6 }, // Sonnet
+};
+
+function calcCost(model, usage) {
+  const p = PRICING[model] || PRICING[MODEL_SINGLE];
+  return (usage.input_tokens || 0) * p.input + (usage.output_tokens || 0) * p.output;
+}
+
 const SYSTEM_PROMPT = `You are a logistics document parser for a furniture moving company called KRS Moving Solutions. You extract structured product line items from delivery tickets, packing slips, bills of lading, and similar shipping documents.
 
 Always return ONLY valid JSON with no markdown fencing, no explanation text. The JSON must have this exact structure:
@@ -163,7 +174,12 @@ exports.handler = async function (event) {
 
     const claudeData = await claudeRes.json();
     const rawText = (claudeData.content && claudeData.content[0] && claudeData.content[0].text) || '';
-    console.log('Claude returned', rawText.length, 'chars for jobId:', jobId);
+    const usage = claudeData.usage || { input_tokens: 0, output_tokens: 0 };
+    const modelUsed = hasSupplements ? MODEL_MULTI : MODEL_SINGLE;
+    const cost = calcCost(modelUsed, usage);
+    console.log('Claude returned', rawText.length, 'chars for jobId:', jobId,
+      '| tokens in:', usage.input_tokens, 'out:', usage.output_tokens,
+      '| cost: $' + cost.toFixed(6));
 
     let cleaned = rawText.trim();
     if (cleaned.startsWith('```')) {
@@ -182,13 +198,17 @@ exports.handler = async function (event) {
       items: parsed.items || [],
       meta: parsed.meta || {},
       parseError: parsed.parseError || false,
+      cost,
+      usage,
+      model: modelUsed,
     });
 
     await storeResult(jobId, recordId, {
       Status: 'done',
       Result: resultStr.substring(0, 99000),
+      Cost: cost,
     });
-    console.log('Extraction done for jobId:', jobId, '—', (parsed.items || []).length, 'items');
+    console.log('Extraction done for jobId:', jobId, '—', (parsed.items || []).length, 'items | cost: $' + cost.toFixed(6));
 
   } catch (err) {
     console.error('Extraction failed for jobId:', jobId, err.message);

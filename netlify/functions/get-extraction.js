@@ -43,6 +43,9 @@ exports.handler = async function (event) {
         items: parsed.items || [],
         meta: parsed.meta || {},
         parseError: parsed.parseError || false,
+        cost: parsed.cost || null,
+        usage: parsed.usage || null,
+        model: parsed.model || null,
       });
     }
 

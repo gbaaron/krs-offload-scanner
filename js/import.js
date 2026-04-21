@@ -98,6 +98,43 @@
     return res.json();
   }
 
+  // ---- Cost notification (auto-dismiss after 8s) ----
+  function showCostNotice(result) {
+    if (!result || result.cost == null) return;
+    const cost = result.cost;
+    const usage = result.usage || {};
+    const model = result.model || 'claude';
+    const modelShort = model.includes('sonnet') ? 'Sonnet' : 'Haiku';
+    const notice = document.createElement('div');
+    notice.style.cssText = [
+      'position:fixed', 'bottom:24px', 'right:24px', 'z-index:9999',
+      'background:#1a2744', 'color:#fff', 'border:1px solid rgba(232,124,42,0.4)',
+      'border-left:3px solid #e87c2a', 'border-radius:8px',
+      'padding:12px 16px', 'font-size:0.83rem', 'line-height:1.5',
+      'box-shadow:0 4px 20px rgba(0,0,0,0.4)', 'max-width:280px',
+      'animation:slideInRight 0.3s ease',
+    ].join(';');
+    notice.innerHTML =
+      '<div style="font-weight:600;color:#e87c2a;margin-bottom:2px">AI Parsing Cost</div>' +
+      '<div>Est. <strong>$' + cost.toFixed(5) + '</strong> · ' + modelShort + '</div>' +
+      '<div style="color:rgba(255,255,255,0.5);font-size:0.76rem">' +
+        (usage.input_tokens || 0).toLocaleString() + ' in · ' +
+        (usage.output_tokens || 0).toLocaleString() + ' out tokens' +
+      '</div>';
+    if (!document.getElementById('krs-cost-anim')) {
+      const style = document.createElement('style');
+      style.id = 'krs-cost-anim';
+      style.textContent = '@keyframes slideInRight{from{opacity:0;transform:translateX(30px)}to{opacity:1;transform:translateX(0)}}';
+      document.head.appendChild(style);
+    }
+    document.body.appendChild(notice);
+    setTimeout(() => {
+      notice.style.transition = 'opacity 0.4s';
+      notice.style.opacity = '0';
+      setTimeout(() => notice.remove(), 400);
+    }, 8000);
+  }
+
   // ---- Error display ----
   function showError(msg) {
     el.errorMsg.textContent = msg;
@@ -312,6 +349,7 @@
         meta: JSON.parse(JSON.stringify(extractedMeta)),
       };
 
+      showCostNotice(result);
       populateMetaEditor();
       renderReview();
       showStep(3);
