@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#1a2744">
+  <title>KRS Moving Solutions — Offload Scanner</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="landing">
+  <!-- Landing / home page: links to scanner (for crew) and dashboard (for dealer / mgmt) -->
+  <header class="site-header">
+    <div class="brand">
+      <div class="brand-title">KRS Moving Solutions</div>
+      <div class="brand-sub">Furniture Offload &amp; Install Scanner</div>
+    </div>
+    <div class="dealer-tag">
+      <span class="dealer-label">Dealer Partner</span>
+      <span class="dealer-name">Michigan Office Environments</span>
+    </div>
+  </header>
+
+  <main class="landing-main">
+    <div class="hero-card">
+      <h1>Offload &amp; Installation Tracking</h1>
+      <p class="lede">
+        Scan every piece as it comes off the truck. Share real-time progress
+        with the dealer. No clipboards. No missing product.
+      </p>
+
+      <div class="landing-cta-row">
+        <!-- Crew member entry point -->
+        <a class="cta-btn cta-primary" href="scanner.html">
+          <span class="cta-icon">&#128246;</span>
+          <span class="cta-text">
+            <span class="cta-title">Open Scanner</span>
+            <span class="cta-sub">For KRS crew on-site</span>
+          </span>
+        </a>
+
+        <!-- Mgmt / dealer entry point -->
+        <a class="cta-btn cta-secondary" href="dashboard.html">
+          <span class="cta-icon">&#128202;</span>
+          <span class="cta-text">
+            <span class="cta-title">View Dashboard</span>
+            <span class="cta-sub">For mgmt &amp; dealer reps</span>
+          </span>
+        </a>
+
+        <!-- Import paperwork entry point -->
+        <a class="cta-btn cta-secondary" href="import.html">
+          <span class="cta-icon">&#128196;</span>
+          <span class="cta-text">
+            <span class="cta-title">Import Paperwork</span>
+            <span class="cta-sub">Upload packing slips &amp; BOLs</span>
+          </span>
+        </a>
+      </div>
+
+      <div class="landing-meta">
+        <div><strong>Jobs:</strong> Pulled live from Airtable</div>
+        <div><strong>Scans:</strong> Logged with GPS + timestamp</div>
+        <div><strong>Offline:</strong> Queued locally, synced when online</div>
+      </div>
+
+      <a class="admin-link" href="admin.html">&#9881; Site Config</a>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    &copy; <span id="yr"></span> KRS Moving Solutions &middot;
+    Built for Michigan Office Environments partnership
+  </footer>
+
+  <script>
+    // Stamp footer year
+    document.getElementById('yr').textContent = new Date().getFullYear();
+  </script>
+</body>
+</html>

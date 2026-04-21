@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a2744">
+  <title>KRS Admin — Site Configuration</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="admin-body">
+
+  <header class="admin-header">
+    <div class="admin-brand">
+      <a href="index.html" class="admin-back">&larr;</a>
+      <div>
+        <div class="admin-brand-title">KRS Site Config</div>
+        <div class="admin-brand-sub">Edit settings and push changes live</div>
+      </div>
+    </div>
+    <button class="admin-save-btn" id="saveBtn" disabled>Save All Changes</button>
+  </header>
+
+  <!-- Status bar -->
+  <div class="admin-status" id="statusBar">Loading configuration...</div>
+
+  <main class="admin-main" id="adminMain">
+
+    <!-- Branding section -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">Branding</h2>
+      <p class="admin-section-desc">Company names and labels shown across all pages.</p>
+      <div class="admin-grid" id="section-Branding"></div>
+    </section>
+
+    <!-- Scanner section -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">Scanner</h2>
+      <p class="admin-section-desc">Settings for the mobile barcode scanner app.</p>
+      <div class="admin-grid" id="section-Scanner"></div>
+    </section>
+
+    <!-- Dashboard section -->
+    <section class="admin-section">
+      <h2 class="admin-section-title">Dashboard</h2>
+      <p class="admin-section-desc">Controls for the live status dashboard.</p>
+      <div class="admin-grid" id="section-Dashboard"></div>
+    </section>
+
+    <!-- Uncategorized / custom keys -->
+    <section class="admin-section hidden" id="uncategorizedSection">
+      <h2 class="admin-section-title">Other</h2>
+      <p class="admin-section-desc">Config keys without a category.</p>
+      <div class="admin-grid" id="section-Other"></div>
+    </section>
+
+    <!-- Add new key -->
+    <section class="admin-section admin-section-add">
+      <h2 class="admin-section-title">Add New Config Key</h2>
+      <div class="admin-add-row">
+        <input class="admin-input" id="newKey" placeholder="key_name (e.g. new_feature_flag)">
+        <input class="admin-input" id="newValue" placeholder="Value">
+        <select class="admin-input admin-select" id="newCategory">
+          <option value="Branding">Branding</option>
+          <option value="Scanner">Scanner</option>
+          <option value="Dashboard">Dashboard</option>
+          <option value="">Other</option>
+        </select>
+        <input class="admin-input" id="newDescription" placeholder="Description (optional)">
+        <button class="admin-add-btn" id="addKeyBtn">+ Add</button>
+      </div>
+    </section>
+
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      const statusBar = document.getElementById('statusBar');
+      const saveBtn = document.getElementById('saveBtn');
+      const addKeyBtn = document.getElementById('addKeyBtn');
+      let configDetails = []; // full records from API
+
+      // ---- API helper ----
+      async function api(path, opts) {
+        opts = opts || {};
+        const url = '/.netlify/functions/' + path;
+        const res = await fetch(url, {
+          method: opts.method || 'GET',
+          headers: { 'Content-Type': 'application/json' },
+          body: opts.body ? JSON.stringify(opts.body) : undefined,
+        });
+        if (!res.ok) throw new Error('API ' + path + ': ' + res.status);
+        return res.json();
+      }
+
+      // ---- Load config from API and render form ----
+      async function loadConfig() {
+        statusBar.textContent = 'Loading configuration...';
+        statusBar.className = 'admin-status';
+        try {
+          const data = await api('get-site-config');
+          configDetails = data.details || [];
+          renderForm(configDetails);
+          saveBtn.disabled = false;
+          statusBar.textContent = configDetails.length + ' config keys loaded';
+          statusBar.className = 'admin-status admin-status-ok';
+        } catch (err) {
+          console.error(err);
+          statusBar.textContent = 'Failed to load config: ' + err.message;
+          statusBar.className = 'admin-status admin-status-err';
+        }
+      }
+
+      // ---- Render grouped form ----
+      function renderForm(details) {
+        const buckets = { Branding: [], Scanner: [], Dashboard: [], Other: [] };
+        details.forEach((d) => {
+          const cat = d.category || 'Other';
+          if (!buckets[cat]) buckets[cat] = [];
+          buckets[cat].push(d);
+        });
+
+        Object.keys(buckets).forEach((cat) => {
+          const container = document.getElementById('section-' + cat);
+          if (!container) return;
+          container.innerHTML = '';
+          if (!buckets[cat].length) return;
+
+          // Show uncategorized section if it has items
+          if (cat === 'Other') {
+            document.getElementById('uncategorizedSection').classList.remove('hidden');
+          }
+
+          buckets[cat].forEach((item) => {
+            const card = document.createElement('div');
+            card.className = 'admin-field-card';
+
+            const isLong = (item.value || '').length > 60 || item.key === 'crew_members';
+            const inputHtml = isLong
+              ? '<textarea class="admin-input admin-textarea" data-key="' + escapeAttr(item.key) + '">' +
+                escapeHtml(item.value) + '</textarea>'
+              : '<input class="admin-input" data-key="' + escapeAttr(item.key) + '" value="' +
+                escapeAttr(item.value) + '">';
+
+            card.innerHTML =
+              '<div class="admin-field-label">' + escapeHtml(item.key) + '</div>' +
+              (item.description
+                ? '<div class="admin-field-desc">' + escapeHtml(item.description) + '</div>'
+                : '') +
+              inputHtml;
+            container.appendChild(card);
+          });
+        });
+      }
+
+      // ---- Save all ----
+      async function saveConfig() {
+        saveBtn.disabled = true;
+        statusBar.textContent = 'Saving...';
+        statusBar.className = 'admin-status';
+
+        try {
+          // Collect all data-key inputs
+          const inputs = document.querySelectorAll('[data-key]');
+          const records = [];
+          inputs.forEach((el) => {
+            records.push({
+              key: el.getAttribute('data-key'),
+              value: el.tagName === 'TEXTAREA' ? el.value : el.value,
+            });
+          });
+
+          const result = await api('update-site-config', {
+            method: 'POST',
+            body: { records },
+          });
+
+          statusBar.textContent = 'Saved! Updated ' + (result.updated || 0) +
+            ', created ' + (result.created || 0) + ' keys.';
+          statusBar.className = 'admin-status admin-status-ok';
+        } catch (err) {
+          console.error(err);
+          statusBar.textContent = 'Save failed: ' + err.message;
+          statusBar.className = 'admin-status admin-status-err';
+        } finally {
+          saveBtn.disabled = false;
+        }
+      }
+
+      // ---- Add new key ----
+      function addKey() {
+        const key = document.getElementById('newKey').value.trim();
+        const value = document.getElementById('newValue').value.trim();
+        const category = document.getElementById('newCategory').value;
+        const description = document.getElementById('newDescription').value.trim();
+        if (!key) { alert('Key is required'); return; }
+
+        // Add to the live form
+        const cat = category || 'Other';
+        const container = document.getElementById('section-' + cat);
+        if (cat === 'Other') {
+          document.getElementById('uncategorizedSection').classList.remove('hidden');
+        }
+
+        const card = document.createElement('div');
+        card.className = 'admin-field-card admin-field-new';
+        card.innerHTML =
+          '<div class="admin-field-label">' + escapeHtml(key) + ' <span class="admin-new-badge">NEW</span></div>' +
+          (description ? '<div class="admin-field-desc">' + escapeHtml(description) + '</div>' : '') +
+          '<input class="admin-input" data-key="' + escapeAttr(key) + '" ' +
+          'data-category="' + escapeAttr(cat) + '" ' +
+          'data-description="' + escapeAttr(description) + '" ' +
+          'value="' + escapeAttr(value) + '">';
+        container.appendChild(card);
+
+        // Clear inputs
+        document.getElementById('newKey').value = '';
+        document.getElementById('newValue').value = '';
+        document.getElementById('newDescription').value = '';
+
+        statusBar.textContent = 'Added "' + key + '" — hit Save to persist.';
+        statusBar.className = 'admin-status admin-status-ok';
+      }
+
+      // ---- Helpers ----
+      function escapeHtml(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+      }
+      function escapeAttr(s) {
+        return String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+
+      // ---- Events ----
+      saveBtn.addEventListener('click', saveConfig);
+      addKeyBtn.addEventListener('click', addKey);
+
+      // ---- Init ----
+      loadConfig();
+    })();
+  </script>
+</body>
+</html>

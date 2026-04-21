@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1a2744">
+  <title>KRS — Import Paperwork</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="import-body">
+
+  <header class="import-header">
+    <div class="import-brand">
+      <a href="index.html" class="admin-back">&larr;</a>
+      <div>
+        <div class="import-brand-title">Import Paperwork</div>
+        <div class="import-brand-sub">Upload manufacturer docs, AI extracts the manifest</div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Step 1: Setup + Upload -->
+  <section class="import-step" id="step1">
+    <div class="import-card">
+      <h2>1. Select job &amp; upload</h2>
+      <p class="import-help">Pick the job this paperwork belongs to, then drop the PDF.</p>
+
+      <label class="big-label" for="importJobSelect">Job</label>
+      <select class="big-select" id="importJobSelect">
+        <option value="">Loading jobs...</option>
+      </select>
+
+      <label class="big-label" for="importJobNumber">Job Number (optional)</label>
+      <input class="big-input" id="importJobNumber" type="text" placeholder="e.g. MOE-2026-0412">
+
+      <label class="big-label" for="importManufacturer">Manufacturer hint (optional)</label>
+      <input class="big-input" id="importManufacturer" type="text" placeholder="e.g. HON — helps AI identify products">
+
+      <label class="big-label" for="importDealer">Dealer</label>
+      <input class="big-input" id="importDealer" type="text" value="Michigan Office Environments">
+
+      <label class="big-label">Pack list / primary doc</label>
+      <div class="import-drop" id="dropZone">
+        <div class="import-drop-icon">&#128196;</div>
+        <div class="import-drop-text">Drop PDF here or tap to upload</div>
+        <div class="import-drop-sub">Packing slips, delivery tickets, BOLs (max 4 MB)</div>
+        <input type="file" id="fileInput" accept=".pdf" style="display:none">
+      </div>
+      <div class="import-file-info hidden" id="fileInfo">
+        <span id="fileInfoName">—</span>
+        <button class="import-remove-btn" id="removeFileBtn">&times;</button>
+      </div>
+
+      <label class="big-label">Spec sheets &amp; supplements (optional)</label>
+      <div class="import-drop" id="supplementDropZone">
+        <div class="import-drop-icon">&#128221;</div>
+        <div class="import-drop-text">Drop spec sheets here or tap to add</div>
+        <div class="import-drop-sub">Multiple PDFs OK. Used to enrich descriptions (dimensions, fabric, finish).</div>
+        <input type="file" id="supplementFileInput" accept=".pdf" multiple style="display:none">
+      </div>
+      <div id="supplementList"></div>
+
+      <button class="big-btn big-btn-primary" id="extractBtn" disabled>
+        Extract Items with AI
+      </button>
+    </div>
+  </section>
+
+  <!-- Step 2: Processing spinner -->
+  <section class="import-step hidden" id="step2">
+    <div class="import-card import-card-center">
+      <div class="import-spinner"></div>
+      <h2>Analyzing document...</h2>
+      <p class="import-help">Claude is reading the paperwork and extracting line items. This can take 10-20 seconds.</p>
+    </div>
+  </section>
+
+  <!-- Step 3: Review extracted items -->
+  <section class="import-step hidden" id="step3">
+    <div class="import-card">
+      <h2>2. Review &amp; edit</h2>
+      <p class="import-help">Verify what AI found. Edit inline, then choose an action below.</p>
+
+      <!-- Editable meta fields -->
+      <div class="import-meta-editor">
+        <div class="import-meta-grid">
+          <div class="import-meta-field">
+            <label>Document Type</label>
+            <select id="metaDocType">
+              <option value="">—</option>
+              <option value="Packing List">Packing List</option>
+              <option value="Bill of Lading">Bill of Lading</option>
+              <option value="Delivery Ticket">Delivery Ticket</option>
+              <option value="Invoice">Invoice</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="import-meta-field">
+            <label>Order / PO #</label>
+            <input type="text" id="metaOrderNumber" placeholder="—">
+          </div>
+          <div class="import-meta-field">
+            <label>Dealer</label>
+            <input type="text" id="metaDealer" placeholder="—">
+          </div>
+          <div class="import-meta-field">
+            <label>Ship Date</label>
+            <input type="date" id="metaShipDate">
+          </div>
+          <div class="import-meta-field">
+            <label>Total Qty (doc)</label>
+            <input type="number" id="metaTotalQty" min="0" placeholder="—">
+          </div>
+        </div>
+      </div>
+
+      <div class="import-table-scroll">
+        <table class="import-table" id="importTable">
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="checkAll" checked></th>
+              <th>Description</th>
+              <th>Manufacturer</th>
+              <th>SKU</th>
+              <th>Qty</th>
+              <th>Room</th>
+              <th>Notes</th>
+            </tr>
+          </thead>
+          <tbody id="importBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Action bar -->
+      <div class="import-action-bar">
+        <button class="big-btn big-btn-cancel" id="backBtn">Back</button>
+        <div class="import-action-group">
+          <button class="import-action-btn" id="saveChangesBtn">&#128190; Save Changes</button>
+          <button class="import-action-btn" id="roomDocBtn">&#128196; Room Document</button>
+          <button class="import-action-btn" id="quoteBtn">&#128176; Quote</button>
+          <button class="big-btn big-btn-primary" id="importBtn">
+            Import <span id="importCount">0</span> items
+          </button>
+        </div>
+      </div>
+
+      <div class="import-save-badge hidden" id="saveBadge">&#10003; Saved to AI training log</div>
+    </div>
+  </section>
+
+  <!-- Step 4: Done -->
+  <section class="import-step hidden" id="step4">
+    <div class="import-card import-card-center">
+      <div class="import-done-icon">&#9989;</div>
+      <h2>Manifest imported!</h2>
+      <p class="import-help" id="doneMsg">0 items added as Pending products for this job.</p>
+      <div class="import-actions">
+        <a class="big-btn big-btn-primary" href="scanner.html">Open Scanner</a>
+        <a class="big-btn big-btn-cancel" href="dashboard.html">View Dashboard</a>
+      </div>
+      <button class="import-another-btn" id="anotherBtn">Import another document</button>
+    </div>
+  </section>
+
+  <!-- Error state -->
+  <div class="import-error hidden" id="errorBar">
+    <span id="errorMsg">Something went wrong</span>
+    <button class="import-error-close" id="errorClose">&times;</button>
+  </div>
+
+  <!-- Room Document modal -->
+  <div class="import-modal hidden" id="roomDocModal">
+    <div class="import-modal-box">
+      <div class="import-modal-header">
+        <h3>Room Document</h3>
+        <button class="import-modal-close" id="roomDocClose">&times;</button>
+      </div>
+      <p class="import-help">Copy and paste into Google Docs or an email.</p>
+      <textarea class="import-modal-text" id="roomDocText" readonly></textarea>
+      <button class="big-btn big-btn-primary" id="roomDocCopy">Copy to Clipboard</button>
+    </div>
+  </div>
+
+  <!-- Quote modal -->
+  <div class="import-modal hidden" id="quoteModal">
+    <div class="import-modal-box import-modal-wide">
+      <div class="import-modal-header">
+        <h3>Pricing Quote</h3>
+        <button class="import-modal-close" id="quoteClose">&times;</button>
+      </div>
+      <div id="quoteSpinner" class="import-modal-spinner">
+        <div class="import-spinner"></div>
+        <p>Looking up pricing...</p>
+      </div>
+      <div id="quoteContent" class="hidden">
+        <table class="import-table import-quote-table">
+          <thead>
+            <tr>
+              <th>Description</th>
+              <th>SKU</th>
+              <th>Qty</th>
+              <th>Unit $</th>
+              <th>Labor</th>
+              <th>Line Total</th>
+            </tr>
+          </thead>
+          <tbody id="quoteBody"></tbody>
+          <tfoot id="quoteFoot"></tfoot>
+        </table>
+        <div id="quoteUnmatched" class="import-quote-unmatched hidden">
+          <strong>Not found in pricing database:</strong>
+          <ul id="quoteUnmatchedList"></ul>
+        </div>
+        <button class="big-btn big-btn-primary" id="quoteCopy">Copy Quote Text</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Job number prompt (before import) -->
+  <div class="import-modal hidden" id="jobNumModal">
+    <div class="import-modal-box import-modal-sm">
+      <div class="import-modal-header">
+        <h3>Job Number</h3>
+      </div>
+      <p class="import-help">Tag these items with a job number in Airtable (optional).</p>
+      <input class="big-input" id="jobNumInput" type="text" placeholder="e.g. MOE-2026-0412">
+      <div class="import-actions">
+        <button class="big-btn big-btn-cancel" id="jobNumSkip">Skip</button>
+        <button class="big-btn big-btn-primary" id="jobNumConfirm">Confirm &amp; Import</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/import.js"></script>
+</body>
+</html>
